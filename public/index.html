@@ -182,25 +182,6 @@
                 transform: scale(1.02);
             }
         }
-        .result {
-            text-align: center;
-            font-size: 2rem;
-            font-weight: 800;
-            margin-top: 20px;
-            padding: 25px;
-            border-radius: 16px;
-            animation: fadeIn 0.5s ease;
-        }
-        .result.correct {
-            color: #27ae60;
-            background: #eafaf1;
-            border: 2px solid #82e0aa;
-        }
-        .result.wrong {
-            color: #e74c3c;
-            background: #fdedec;
-            border: 2px solid #f5b7b1;
-        }
         .hidden {
             display: none;
         }
@@ -275,10 +256,6 @@
                 font-size: 2.2rem;
                 padding: 15px;
             }
-            .result {
-                font-size: 1.5rem;
-                padding: 18px;
-            }
             .user-info {
                 font-size: 0.95rem;
             }
@@ -321,7 +298,6 @@
                 <input type="text" id="answerInput" placeholder="اكتب الإجابة" dir="auto" />
             </div>
             <button class="btn" id="submitBtn" onclick="submitAnswer()">تأكيد الإجابة</button>
-            <div id="result" class="result hidden"></div>
         </div>
     </div>
 
@@ -329,9 +305,9 @@
     <div class="lock-overlay" id="lockOverlay">
         <div class="lock-box">
             <h2>الاختبار مغلق</h2>
-            <p>لقد انتهى وقت الاختبار أو تم الإجابة عليه مسبقاً.</p>
+            <p id="lockReason">لقد انتهى وقت الاختبار أو تم الإجابة عليه مسبقاً.</p>
             <p>في حال رغبت في إعادة الاختبار، يرجى التواصل مع:</p>
-            <div class="contact">📱 01012345678</div>
+            <div class="contact">01012345678</div>
             <button class="btn btn-secondary" onclick="window.location.reload()">تحديث الصفحة</button>
         </div>
     </div>
@@ -343,6 +319,18 @@
         let isAnswered = false;
         let startTime = null;
         let isLocked = false;
+
+        // التحقق من حالة القفل عند تحميل الصفحة
+        document.addEventListener('DOMContentLoaded', function() {
+            const quizLocked = localStorage.getItem('quizLocked');
+            if (quizLocked === 'true') {
+                document.getElementById('lockReason').textContent = 'تم إغلاق الاختبار، لا يمكنك إعادة المحاولة.';
+                document.getElementById('lockOverlay').classList.add('active');
+                document.getElementById('userForm').style.display = 'none';
+                document.getElementById('quizSection').style.display = 'none';
+                isLocked = true;
+            }
+        });
 
         function startQuiz() {
             const name = document.getElementById('userName').value.trim();
@@ -388,7 +376,14 @@
                     document.getElementById('submitBtn').disabled = true;
                     if (!isAnswered) {
                         lockQuiz('انتهى الوقت');
-                        submitAnswer(true);
+                        // حفظ البيانات مع إجابة فارغة
+                        saveData({
+                            ...userData,
+                            answer: 'انتهى الوقت',
+                            isCorrect: false,
+                            timeTaken: 60,
+                            timestamp: new Date().toISOString()
+                        });
                     }
                 }
             }, 1000);
@@ -405,13 +400,13 @@
             }
         }
 
-        function submitAnswer(autoSubmit = false) {
+        function submitAnswer() {
             if (isAnswered) return;
 
             const answerInput = document.getElementById('answerInput');
             const answer = answerInput.value.trim();
             
-            if (!answer && !autoSubmit) {
+            if (!answer) {
                 alert('الرجاء إدخال إجابتك!');
                 return;
             }
@@ -425,35 +420,37 @@
             document.getElementById('submitBtn').disabled = true;
             document.getElementById('answerInput').disabled = true;
 
-            const resultDiv = document.getElementById('result');
-            resultDiv.classList.remove('hidden', 'correct', 'wrong');
-            
-            if (isCorrect) {
-                resultDiv.textContent = 'إجابة صحيحة!';
-                resultDiv.classList.add('correct');
-            } else {
-                resultDiv.textContent = 'إجابة خاطئة! الإجابة الصحيحة هي: 48';
-                resultDiv.classList.add('wrong');
-            }
-
             // حفظ البيانات
             saveData({
                 ...userData,
-                answer: answer || 'انتهى الوقت',
+                answer: answer,
                 isCorrect: isCorrect,
                 timeTaken: timeTaken,
                 timestamp: new Date().toISOString()
             });
 
-            // قفل الاختبار بعد 5 ثواني
+            // الانتقال إلى صفحة النتيجة
+            localStorage.setItem('quizResult', JSON.stringify({
+                isCorrect: isCorrect,
+                answer: answer,
+                timeTaken: timeTaken,
+                userData: userData
+            }));
+
+            // قفل الاختبار
+            lockQuiz('تم الإجابة على الاختبار');
+
+            // الانتقال إلى صفحة النتيجة بعد ثانية
             setTimeout(() => {
-                lockQuiz('تم الإجابة على الاختبار');
-            }, 5000);
+                window.location.href = '/result';
+            }, 1000);
         }
 
         function lockQuiz(reason) {
             if (isLocked) return;
             isLocked = true;
+            localStorage.setItem('quizLocked', 'true');
+            document.getElementById('lockReason').textContent = reason;
             document.getElementById('lockOverlay').classList.add('active');
             document.getElementById('answerInput').disabled = true;
             document.getElementById('submitBtn').disabled = true;
