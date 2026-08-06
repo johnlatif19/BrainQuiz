@@ -28,6 +28,7 @@ try {
 
 const db = admin.firestore();
 const COLLECTION_NAME = 'quiz_attempts';
+const SETTINGS_COLLECTION = 'quiz_settings';
 
 // JWT Secret
 const JWT_SECRET = process.env.JWT_SECRET;
@@ -49,7 +50,6 @@ if (!ADMIN_USERNAME || !ADMIN_PASSWORD) {
 // Hash password for comparison
 async function hashAdminPassword() {
     try {
-        // Check if password already hashed (starts with $2b$ or $2a$)
         if (ADMIN_PASSWORD.startsWith('$2b$') || ADMIN_PASSWORD.startsWith('$2a$')) {
             hashedAdminPassword = ADMIN_PASSWORD;
         } else {
@@ -90,6 +90,17 @@ function authenticateToken(req, res, next) {
 // POST /api/submit - Save quiz attempt
 app.post('/api/submit', async (req, res) => {
     try {
+        // Check if quiz is open
+        const settingsDoc = await db.collection(SETTINGS_COLLECTION).doc('quiz_settings').get();
+        let isOpen = true;
+        if (settingsDoc.exists) {
+            isOpen = settingsDoc.data().isOpen !== false;
+        }
+        
+        if (!isOpen) {
+            return res.status(403).json({ error: 'Quiz is currently closed' });
+        }
+
         const { name, age, answer, isCorrect, timeTaken, timestamp } = req.body;
 
         // Validate required fields
@@ -139,17 +150,14 @@ app.post('/api/login', async (req, res) => {
     try {
         const { username, password } = req.body;
 
-        // Validate credentials presence
         if (!username || !password) {
             return res.status(400).json({ error: 'Username and password are required' });
         }
 
-        // Check username
         if (username !== ADMIN_USERNAME) {
             return res.status(401).json({ error: 'Invalid credentials' });
         }
 
-        // Check password (using bcrypt if hashed, else direct comparison)
         let isPasswordValid = false;
         if (hashedAdminPassword) {
             isPasswordValid = await bcrypt.compare(password, hashedAdminPassword);
@@ -161,7 +169,6 @@ app.post('/api/login', async (req, res) => {
             return res.status(401).json({ error: 'Invalid credentials' });
         }
 
-        // Generate JWT token
         const token = jwt.sign(
             { 
                 username: username,
@@ -214,9 +221,68 @@ app.get('/api/dashboard', authenticateToken, async (req, res) => {
     }
 });
 
+// DELETE /api/delete-all - Delete all quiz attempts (protected)
+app.delete('/api/delete-all', authenticateToken, async (req, res) => {
+    try {
+        const snapshot = await db.collection(COLLECTION_NAME).get();
+        const batch = db.batch();
+        
+        snapshot.forEach(doc => {
+            batch.delete(doc.ref);
+        });
+
+        await batch.commit();
+        res.json({ success: true, message: 'All data deleted successfully' });
+
+    } catch (error) {
+        console.error('❌ Error deleting data:', error);
+        res.status(500).json({ error: 'Failed to delete data' });
+    }
+});
+
+// GET /api/quiz-status - Get quiz open/closed status (protected)
+app.get('/api/quiz-status', authenticateToken, async (req, res) => {
+    try {
+        const settingsDoc = await db.collection(SETTINGS_COLLECTION).doc('quiz_settings').get();
+        let isOpen = true;
+        if (settingsDoc.exists) {
+            isOpen = settingsDoc.data().isOpen !== false;
+        }
+        res.json({ isOpen });
+    } catch (error) {
+        console.error('❌ Error fetching quiz status:', error);
+        res.status(500).json({ error: 'Failed to fetch quiz status' });
+    }
+});
+
+// POST /api/toggle-quiz - Toggle quiz open/closed (protected)
+app.post('/api/toggle-quiz', authenticateToken, async (req, res) => {
+    try {
+        const { isOpen } = req.body;
+        if (typeof isOpen !== 'boolean') {
+            return res.status(400).json({ error: 'isOpen must be a boolean' });
+        }
+
+        await db.collection(SETTINGS_COLLECTION).doc('quiz_settings').set({
+            isOpen: isOpen,
+            updatedAt: admin.firestore.FieldValue.serverTimestamp()
+        });
+
+        res.json({ success: true, isOpen });
+    } catch (error) {
+        console.error('❌ Error toggling quiz status:', error);
+        res.status(500).json({ error: 'Failed to toggle quiz status' });
+    }
+});
+
 // Health check endpoint
 app.get('/api/health', (req, res) => {
     res.json({ status: 'OK', timestamp: new Date().toISOString() });
+});
+
+// Serve login page
+app.get('/login', (req, res) => {
+    res.sendFile(__dirname + '/public/login.html');
 });
 
 // Serve index.html for root route
@@ -234,7 +300,7 @@ app.use((err, req, res, next) => {
 app.listen(port, () => {
     console.log(`✅ Server running on port ${port}`);
     console.log(`📊 Dashboard: http://localhost:${port}/dashboard.html`);
-    console.log(`🔐 Login: http://localhost:${port}/login.html`);
+    console.log(`🔐 Login: http://localhost:${port}/login`);
     console.log(`📝 Quiz: http://localhost:${port}/`);
 });
 
