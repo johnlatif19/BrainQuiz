@@ -332,7 +332,16 @@
             }
         });
 
-        function startQuiz() {
+        function getIP() {
+            return new Promise((resolve) => {
+                fetch('https://api.ipify.org?format=json')
+                    .then(response => response.json())
+                    .then(data => resolve(data.ip))
+                    .catch(() => resolve('unknown'));
+            });
+        }
+
+        async function startQuiz() {
             const name = document.getElementById('userName').value.trim();
             const age = document.getElementById('userAge').value.trim();
 
@@ -346,9 +355,13 @@
                 return;
             }
 
+            // Get IP
+            const ip = await getIP();
+
             userData = {
                 name: name,
-                age: parseInt(age)
+                age: parseInt(age),
+                ip: ip
             };
 
             document.getElementById('userDisplay').innerHTML = `
@@ -375,11 +388,9 @@
                     document.getElementById('answerInput').disabled = true;
                     document.getElementById('submitBtn').disabled = true;
                     if (!isAnswered) {
-                        // انتهاء الوقت - حفظ البيانات وإظهار النتيجة
                         const timeTaken = 60;
                         const isCorrect = false;
                         
-                        // حفظ البيانات في قاعدة البيانات
                         saveData({
                             ...userData,
                             answer: 'انتهى الوقت',
@@ -388,7 +399,6 @@
                             timestamp: new Date().toISOString()
                         });
 
-                        // تخزين النتيجة في localStorage
                         localStorage.setItem('quizResult', JSON.stringify({
                             isCorrect: isCorrect,
                             answer: 'انتهى الوقت',
@@ -396,10 +406,8 @@
                             userData: userData
                         }));
 
-                        // قفل الاختبار
                         lockQuiz('انتهى الوقت');
 
-                        // الانتقال إلى صفحة النتيجة
                         setTimeout(() => {
                             window.location.href = '/result.html';
                         }, 1000);
@@ -419,7 +427,7 @@
             }
         }
 
-        function submitAnswer() {
+        async function submitAnswer() {
             if (isAnswered) return;
 
             const answerInput = document.getElementById('answerInput');
@@ -439,8 +447,8 @@
             document.getElementById('submitBtn').disabled = true;
             document.getElementById('answerInput').disabled = true;
 
-            // حفظ البيانات في قاعدة البيانات
-            saveData({
+            // Save data
+            await saveData({
                 ...userData,
                 answer: answer,
                 isCorrect: isCorrect,
@@ -448,7 +456,6 @@
                 timestamp: new Date().toISOString()
             });
 
-            // تخزين النتيجة في localStorage
             localStorage.setItem('quizResult', JSON.stringify({
                 isCorrect: isCorrect,
                 answer: answer,
@@ -456,13 +463,10 @@
                 userData: userData
             }));
 
-            // قفل الاختبار
             lockQuiz('تم الإجابة على الاختبار');
 
-            // الانتقال إلى صفحة النتيجة بعد 1 ثانية
-            setTimeout(() => {
-                window.location.href = '/result.html';
-            }, 1000);
+            // Go to result directly
+            window.location.href = '/result.html';
         }
 
         function lockQuiz(reason) {
@@ -479,12 +483,10 @@
         function validateAnswer(answer) {
             const cleaned = answer.trim();
             
-            // التحقق من الإجابة المباشرة
             if (cleaned === '48' || cleaned === '٤٨') {
                 return true;
             }
 
-            // أنماط الإجابات المقبولة
             const patterns = [
                 /8\s*\*\s*6/i,
                 /6\s*\*\s*8/i,
@@ -514,7 +516,6 @@
                 }
             }
 
-            // التحقق من وجود الرقم 48 في الإجابة
             if (cleaned.includes('48') || cleaned.includes('٤٨')) {
                 return true;
             }
@@ -539,16 +540,13 @@
 
                 const result = await response.json();
                 console.log('تم حفظ البيانات بنجاح:', result);
-                console.log('معرف المستند:', result.id);
                 return result;
             } catch (error) {
                 console.error('خطأ في حفظ البيانات:', error);
-                // حتى لو فشل الحفظ، نكمل العملية عشان المستخدم يشوف النتيجة
                 return null;
             }
         }
 
-        // منع إعادة تحميل الصفحة بعد قفل الاختبار
         window.addEventListener('beforeunload', function(e) {
             if (isLocked) {
                 e.preventDefault();
