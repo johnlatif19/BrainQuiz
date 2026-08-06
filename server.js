@@ -29,6 +29,8 @@ try {
 const db = admin.firestore();
 const COLLECTION_NAME = 'quiz_attempts';
 const SETTINGS_COLLECTION = 'quiz_settings';
+const LOGS_COLLECTION = 'quiz_logs';
+const USERS_COLLECTION = 'quiz_users';
 
 // JWT Secret
 const JWT_SECRET = process.env.JWT_SECRET;
@@ -37,7 +39,7 @@ if (!JWT_SECRET) {
     process.exit(1);
 }
 
-// Hash admin password if it's not already hashed
+// Hash admin password
 let hashedAdminPassword = null;
 const ADMIN_USERNAME = process.env.ADMIN_USERNAME;
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD;
@@ -47,7 +49,6 @@ if (!ADMIN_USERNAME || !ADMIN_PASSWORD) {
     process.exit(1);
 }
 
-// Hash password for comparison
 async function hashAdminPassword() {
     try {
         if (ADMIN_PASSWORD.startsWith('$2b$') || ADMIN_PASSWORD.startsWith('$2a$')) {
@@ -85,27 +86,58 @@ function authenticateToken(req, res, next) {
     }
 }
 
-// API Routes
+// Helper function to get client IP
+function getClientIP(req) {
+    return req.headers['x-forwarded-for'] || req.connection.remoteAddress || req.socket.remoteAddress || req.ip;
+}
+
+// Helper function to log actions
+async function logAction(action, details) {
+    try {
+        await db.collection(LOGS_COLLECTION).add({
+            action: action,
+            details: details,
+            timestamp: admin.firestore.FieldValue.serverTimestamp(),
+            createdAt: new Date().toISOString()
+        });
+    } catch (error) {
+        console.error('❌ Error logging action:', error);
+    }
+}
 
 // POST /api/submit - Save quiz attempt
 app.post('/api/submit', async (req, res) => {
     try {
         // Check if quiz is open
         const settingsDoc = await db.collection(SETTINGS_COLLECTION).doc('quiz_settings').get();
-        let isOpen = true;
+        let isOpen = false;
         if (settingsDoc.exists) {
-            isOpen = settingsDoc.data().isOpen !== false;
+            isOpen = settingsDoc.data().isOpen === true;
         }
         
         if (!isOpen) {
             return res.status(403).json({ error: 'Quiz is currently closed' });
         }
 
-        const { name, age, answer, isCorrect, timeTaken, timestamp } = req.body;
+        const { name, age, answer, isCorrect, timeTaken, timestamp, ip } = req.body;
 
         // Validate required fields
         if (!name || !age || answer === undefined || isCorrect === undefined || timeTaken === undefined) {
             return res.status(400).json({ error: 'Missing required fields' });
+        }
+
+        // Check if user already participated (by name, age, IP)
+        const userIP = ip || 'unknown';
+        const existingUser = await db.collection(USERS_COLLECTION)
+            .where('name', '==', name.trim())
+            .where('age', '==', age)
+            .where('ip', '==', userIP)
+            .get();
+
+        if (!existingUser.empty) {
+            return res.status(403).json({ 
+                error: 'You have already participated in this quiz. Multiple attempts are not allowed.' 
+            });
         }
 
         // Validate data types
@@ -126,13 +158,45 @@ app.post('/api/submit', async (req, res) => {
             answer: answer.trim() || 'N/A',
             isCorrect: Boolean(isCorrect),
             timeTaken: timeTaken,
+            ip: userIP,
             timestamp: timestamp || new Date().toISOString(),
-            createdAt: admin.firestore.FieldValue.serverTimestamp()
+            createdAt: admin.firestore.FieldValue.serverTimestamp(),
+            status: 'completed'
         };
+
+        // Save user to users collection (to prevent re-entry)
+        await db.collection(USERS_COLLECTION).add({
+            name: name.trim(),
+            age: age,
+            ip: userIP,
+            attemptId: null, // Will be updated after saving attempt
+            createdAt: admin.firestore.FieldValue.serverTimestamp()
+        });
 
         // Save to Firestore
         const docRef = await db.collection(COLLECTION_NAME).add(data);
         
+        // Update user with attempt ID
+        const userQuery = await db.collection(USERS_COLLECTION)
+            .where('name', '==', name.trim())
+            .where('age', '==', age)
+            .where('ip', '==', userIP)
+            .get();
+        
+        if (!userQuery.empty) {
+            userQuery.forEach(async (doc) => {
+                await doc.ref.update({ attemptId: docRef.id });
+            });
+        }
+
+        // Log action
+        await logAction('quiz_attempt', {
+            name: name.trim(),
+            age: age,
+            isCorrect: Boolean(isCorrect),
+            attemptId: docRef.id
+        });
+
         res.status(201).json({
             success: true,
             id: docRef.id,
@@ -180,6 +244,8 @@ app.post('/api/login', async (req, res) => {
             }
         );
 
+        await logAction('admin_login', { username: username });
+
         res.json({
             success: true,
             token: token,
@@ -209,7 +275,9 @@ app.get('/api/dashboard', authenticateToken, async (req, res) => {
                 answer: docData.answer || 'N/A',
                 isCorrect: docData.isCorrect !== undefined ? docData.isCorrect : false,
                 timeTaken: docData.timeTaken || 0,
-                timestamp: docData.timestamp || new Date().toISOString()
+                ip: docData.ip || 'unknown',
+                timestamp: docData.timestamp || new Date().toISOString(),
+                status: docData.status || 'completed'
             });
         });
 
@@ -218,6 +286,49 @@ app.get('/api/dashboard', authenticateToken, async (req, res) => {
     } catch (error) {
         console.error('❌ Error fetching dashboard data:', error);
         res.status(500).json({ error: 'Failed to fetch dashboard data' });
+    }
+});
+
+// DELETE /api/delete/:id - Delete specific quiz attempt (protected)
+app.delete('/api/delete/:id', authenticateToken, async (req, res) => {
+    try {
+        const { id } = req.params;
+        
+        // Get the attempt first to log details
+        const attemptDoc = await db.collection(COLLECTION_NAME).doc(id).get();
+        if (!attemptDoc.exists) {
+            return res.status(404).json({ error: 'Attempt not found' });
+        }
+        
+        const attemptData = attemptDoc.data();
+        
+        // Delete the attempt
+        await db.collection(COLLECTION_NAME).doc(id).delete();
+        
+        // Delete associated user entry
+        const userQuery = await db.collection(USERS_COLLECTION)
+            .where('attemptId', '==', id)
+            .get();
+        
+        if (!userQuery.empty) {
+            userQuery.forEach(async (doc) => {
+                await doc.ref.delete();
+            });
+        }
+
+        // Log action
+        await logAction('delete_attempt', {
+            attemptId: id,
+            name: attemptData.name,
+            age: attemptData.age,
+            ip: attemptData.ip
+        });
+
+        res.json({ success: true, message: 'Attempt deleted successfully' });
+
+    } catch (error) {
+        console.error('❌ Error deleting attempt:', error);
+        res.status(500).json({ error: 'Failed to delete attempt' });
     }
 });
 
@@ -232,6 +343,17 @@ app.delete('/api/delete-all', authenticateToken, async (req, res) => {
         });
 
         await batch.commit();
+
+        // Delete all users as well
+        const usersSnapshot = await db.collection(USERS_COLLECTION).get();
+        const usersBatch = db.batch();
+        usersSnapshot.forEach(doc => {
+            usersBatch.delete(doc.ref);
+        });
+        await usersBatch.commit();
+
+        await logAction('delete_all', { count: snapshot.size });
+
         res.json({ success: true, message: 'All data deleted successfully' });
 
     } catch (error) {
@@ -240,13 +362,56 @@ app.delete('/api/delete-all', authenticateToken, async (req, res) => {
     }
 });
 
+// POST /api/toggle-user/:id - Toggle specific user's quiz status (protected)
+app.post('/api/toggle-user/:id', authenticateToken, async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { isOpen } = req.body;
+        
+        if (typeof isOpen !== 'boolean') {
+            return res.status(400).json({ error: 'isOpen must be a boolean' });
+        }
+
+        const userDoc = await db.collection(COLLECTION_NAME).doc(id).get();
+        if (!userDoc.exists) {
+            return res.status(404).json({ error: 'Attempt not found' });
+        }
+
+        const userData = userDoc.data();
+        const newStatus = isOpen ? 'open' : 'closed';
+
+        await db.collection(COLLECTION_NAME).doc(id).update({
+            status: newStatus,
+            isOpen: isOpen,
+            updatedAt: admin.firestore.FieldValue.serverTimestamp()
+        });
+
+        await logAction('toggle_user', {
+            attemptId: id,
+            name: userData.name,
+            isOpen: isOpen,
+            newStatus: newStatus
+        });
+
+        res.json({ 
+            success: true, 
+            isOpen: isOpen,
+            message: `User ${userData.name} ${isOpen ? 'opened' : 'closed'} successfully`
+        });
+
+    } catch (error) {
+        console.error('❌ Error toggling user status:', error);
+        res.status(500).json({ error: 'Failed to toggle user status' });
+    }
+});
+
 // GET /api/quiz-status - Get quiz open/closed status (protected)
 app.get('/api/quiz-status', authenticateToken, async (req, res) => {
     try {
         const settingsDoc = await db.collection(SETTINGS_COLLECTION).doc('quiz_settings').get();
-        let isOpen = true;
+        let isOpen = false;
         if (settingsDoc.exists) {
-            isOpen = settingsDoc.data().isOpen !== false;
+            isOpen = settingsDoc.data().isOpen === true;
         }
         res.json({ isOpen });
     } catch (error) {
@@ -268,10 +433,35 @@ app.post('/api/toggle-quiz', authenticateToken, async (req, res) => {
             updatedAt: admin.firestore.FieldValue.serverTimestamp()
         });
 
+        await logAction('toggle_quiz_global', { isOpen: isOpen });
+
         res.json({ success: true, isOpen });
     } catch (error) {
         console.error('❌ Error toggling quiz status:', error);
         res.status(500).json({ error: 'Failed to toggle quiz status' });
+    }
+});
+
+// GET /api/logs - Get all logs (protected)
+app.get('/api/logs', authenticateToken, async (req, res) => {
+    try {
+        const snapshot = await db.collection(LOGS_COLLECTION)
+            .orderBy('timestamp', 'desc')
+            .limit(100)
+            .get();
+
+        const logs = [];
+        snapshot.forEach(doc => {
+            logs.push({
+                id: doc.id,
+                ...doc.data()
+            });
+        });
+
+        res.json(logs);
+    } catch (error) {
+        console.error('❌ Error fetching logs:', error);
+        res.status(500).json({ error: 'Failed to fetch logs' });
     }
 });
 
