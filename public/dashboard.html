@@ -118,24 +118,24 @@
             transition: 0.3s;
             color: white;
         }
-        .action-btn.delete-btn {
+        .action-btn.delete-all-btn {
             background: #e74c3c;
         }
-        .action-btn.delete-btn:hover {
+        .action-btn.delete-all-btn:hover {
             background: #c0392b;
             transform: scale(1.05);
         }
-        .action-btn.toggle-btn {
+        .action-btn.toggle-global-btn {
             background: #f39c12;
         }
-        .action-btn.toggle-btn:hover {
+        .action-btn.toggle-global-btn:hover {
             background: #e67e22;
             transform: scale(1.05);
         }
-        .action-btn.toggle-btn.active {
+        .action-btn.toggle-global-btn.active {
             background: #27ae60;
         }
-        .action-btn.toggle-btn.active:hover {
+        .action-btn.toggle-global-btn.active:hover {
             background: #229954;
         }
         .table-container {
@@ -191,6 +191,54 @@
             background: #f8d7da;
             color: #721c24;
         }
+        .badge.open {
+            background: #d4edda;
+            color: #155724;
+        }
+        .badge.closed {
+            background: #f8d7da;
+            color: #721c24;
+        }
+        .action-cell {
+            display: flex;
+            gap: 5px;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+        .action-cell button {
+            padding: 5px 12px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 0.8rem;
+            transition: 0.3s;
+            color: white;
+        }
+        .action-cell .delete-user-btn {
+            background: #e74c3c;
+        }
+        .action-cell .delete-user-btn:hover {
+            background: #c0392b;
+        }
+        .action-cell .toggle-user-btn {
+            background: #3498db;
+        }
+        .action-cell .toggle-user-btn:hover {
+            background: #2980b9;
+        }
+        .action-cell .toggle-user-btn.open {
+            background: #27ae60;
+        }
+        .action-cell .toggle-user-btn.open:hover {
+            background: #229954;
+        }
+        .action-cell .toggle-user-btn.closed {
+            background: #e74c3c;
+        }
+        .action-cell .toggle-user-btn.closed:hover {
+            background: #c0392b;
+        }
         .loading-container {
             text-align: center;
             padding: 40px;
@@ -213,6 +261,34 @@
             padding: 40px;
             color: #666;
             font-size: 1.1rem;
+        }
+        .toast {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            background: #333;
+            color: white;
+            padding: 15px 25px;
+            border-radius: 8px;
+            z-index: 1000;
+            display: none;
+            animation: slideIn 0.3s ease;
+        }
+        .toast.success {
+            background: #27ae60;
+        }
+        .toast.error {
+            background: #e74c3c;
+        }
+        @keyframes slideIn {
+            from {
+                transform: translateX(100%);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
         }
         @media (max-width: 768px) {
             .header {
@@ -254,6 +330,10 @@
                 padding: 8px 10px;
                 font-size: 0.85rem;
             }
+            .action-cell button {
+                font-size: 0.7rem;
+                padding: 4px 8px;
+            }
         }
     </style>
 </head>
@@ -289,7 +369,7 @@
     </div>
 
     <div class="controls">
-        <input type="text" id="searchInput" placeholder="بحث بالاسم أو الإجابة..." oninput="filterData()" />
+        <input type="text" id="searchInput" placeholder="بحث بالاسم أو الإجابة أو IP..." oninput="filterData()" />
         <select id="sortSelect" onchange="sortData()">
             <option value="timestamp-desc">التاريخ (الأحدث)</option>
             <option value="timestamp-asc">التاريخ (الأقدم)</option>
@@ -301,8 +381,8 @@
             <option value="time-desc">الوقت (الأبطأ)</option>
         </select>
         <div class="action-buttons">
-            <button class="action-btn toggle-btn" id="toggleBtn" onclick="toggleQuiz()">فتح الاختبار</button>
-            <button class="action-btn delete-btn" onclick="deleteAllData()">حذف الكل</button>
+            <button class="action-btn toggle-global-btn" id="toggleGlobalBtn" onclick="toggleGlobalQuiz()">فتح الاختبار</button>
+            <button class="action-btn delete-all-btn" onclick="deleteAllData()">حذف الكل</button>
         </div>
     </div>
 
@@ -320,7 +400,9 @@
                         <th onclick="sortBy('answer')">الإجابة <span class="sort-icon">↕</span></th>
                         <th onclick="sortBy('isCorrect')">الحالة <span class="sort-icon">↕</span></th>
                         <th onclick="sortBy('timeTaken')">الوقت <span class="sort-icon">↕</span></th>
+                        <th>IP</th>
                         <th onclick="sortBy('timestamp')">التاريخ <span class="sort-icon">↕</span></th>
+                        <th>الإجراءات</th>
                     </tr>
                 </thead>
                 <tbody id="tableBody"></tbody>
@@ -329,13 +411,14 @@
         </div>
     </div>
 
+    <div class="toast" id="toast"></div>
+
     <script>
         let allData = [];
         let filteredData = [];
         let currentSort = 'timestamp-desc';
-        let isQuizOpen = true;
+        let isQuizOpen = false;
 
-        // التحقق من المصادقة
         document.addEventListener('DOMContentLoaded', () => {
             const token = localStorage.getItem('adminToken');
             if (!token) {
@@ -345,6 +428,16 @@
             fetchData(token);
             fetchQuizStatus();
         });
+
+        function showToast(message, type = 'success') {
+            const toast = document.getElementById('toast');
+            toast.textContent = message;
+            toast.className = 'toast ' + type;
+            toast.style.display = 'block';
+            setTimeout(() => {
+                toast.style.display = 'none';
+            }, 3000);
+        }
 
         async function fetchData(token) {
             try {
@@ -388,38 +481,82 @@
                 if (response.ok) {
                     const data = await response.json();
                     isQuizOpen = data.isOpen;
-                    updateToggleButton();
-                } else {
-                    console.error('فشل في جلب حالة الاختبار');
+                    updateGlobalToggleButton();
                 }
             } catch (error) {
                 console.error('خطأ في جلب حالة الاختبار:', error);
             }
         }
 
-        function updateToggleButton() {
-            const btn = document.getElementById('toggleBtn');
+        function updateGlobalToggleButton() {
+            const btn = document.getElementById('toggleGlobalBtn');
             if (isQuizOpen) {
                 btn.textContent = 'إغلاق الاختبار';
                 btn.classList.remove('active');
-                btn.style.background = '#f39c12';
             } else {
                 btn.textContent = 'فتح الاختبار';
                 btn.classList.add('active');
-                btn.style.background = '#27ae60';
             }
         }
 
-        async function toggleQuiz() {
+        async function toggleGlobalQuiz() {
             try {
                 const token = localStorage.getItem('adminToken');
-                if (!token) {
-                    alert('يرجى تسجيل الدخول أولاً');
-                    return;
-                }
-
-                const newStatus = !isQuizOpen;
                 const response = await fetch('/api/toggle-quiz', {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ isOpen: !isQuizOpen })
+                });
+
+                if (response.ok) {
+                    isQuizOpen = !isQuizOpen;
+                    updateGlobalToggleButton();
+                    showToast(`تم ${isQuizOpen ? 'فتح' : 'إغلاق'} الاختبار بنجاح!`);
+                } else {
+                    showToast('فشل في تغيير حالة الاختبار', 'error');
+                }
+            } catch (error) {
+                console.error('خطأ في تغيير حالة الاختبار:', error);
+                showToast('حدث خطأ أثناء تغيير حالة الاختبار', 'error');
+            }
+        }
+
+        async function deleteUser(id, name) {
+            if (!confirm(`هل أنت متأكد من حذف محاولة "${name}"؟ هذا الإجراء لا يمكن التراجع عنه!`)) {
+                return;
+            }
+
+            try {
+                const token = localStorage.getItem('adminToken');
+                const response = await fetch(`/api/delete/${id}`, {
+                    method: 'DELETE',
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
+
+                if (response.ok) {
+                    allData = allData.filter(item => item.id !== id);
+                    updateStats();
+                    applyFiltersAndSort();
+                    showToast(`تم حذف محاولة "${name}" بنجاح!`);
+                } else {
+                    showToast('فشل في حذف المحاولة', 'error');
+                }
+            } catch (error) {
+                console.error('خطأ في حذف المحاولة:', error);
+                showToast('حدث خطأ أثناء حذف المحاولة', 'error');
+            }
+        }
+
+        async function toggleUser(id, currentStatus) {
+            try {
+                const token = localStorage.getItem('adminToken');
+                const newStatus = !currentStatus;
+                const response = await fetch(`/api/toggle-user/${id}`, {
                     method: 'POST',
                     headers: {
                         'Authorization': `Bearer ${token}`,
@@ -429,16 +566,20 @@
                 });
 
                 if (response.ok) {
-                    isQuizOpen = newStatus;
-                    updateToggleButton();
-                    alert(`تم ${isQuizOpen ? 'فتح' : 'إغلاق'} الاختبار بنجاح!`);
+                    // Update local data
+                    const item = allData.find(d => d.id === id);
+                    if (item) {
+                        item.isOpen = newStatus;
+                        item.status = newStatus ? 'open' : 'closed';
+                    }
+                    applyFiltersAndSort();
+                    showToast(`تم ${newStatus ? 'فتح' : 'إغلاق'} محاولة المستخدم بنجاح!`);
                 } else {
-                    const error = await response.json();
-                    alert('فشل في تغيير حالة الاختبار: ' + (error.error || ''));
+                    showToast('فشل في تغيير حالة المستخدم', 'error');
                 }
             } catch (error) {
-                console.error('خطأ في تغيير حالة الاختبار:', error);
-                alert('حدث خطأ أثناء تغيير حالة الاختبار');
+                console.error('خطأ في تغيير حالة المستخدم:', error);
+                showToast('حدث خطأ أثناء تغيير حالة المستخدم', 'error');
             }
         }
 
@@ -461,13 +602,13 @@
                     filteredData = [];
                     updateStats();
                     renderTable();
-                    alert('تم حذف جميع البيانات بنجاح!');
+                    showToast('تم حذف جميع البيانات بنجاح!');
                 } else {
-                    alert('فشل في حذف البيانات');
+                    showToast('فشل في حذف البيانات', 'error');
                 }
             } catch (error) {
                 console.error('خطأ في حذف البيانات:', error);
-                alert('حدث خطأ أثناء حذف البيانات');
+                showToast('حدث خطأ أثناء حذف البيانات', 'error');
             }
         }
 
@@ -492,7 +633,8 @@
                 if (!searchTerm) return true;
                 const name = (item.name || '').toLowerCase();
                 const answer = (item.answer || '').toLowerCase();
-                return name.includes(searchTerm) || answer.includes(searchTerm);
+                const ip = (item.ip || '').toLowerCase();
+                return name.includes(searchTerm) || answer.includes(searchTerm) || ip.includes(searchTerm);
             });
 
             sortData();
@@ -560,7 +702,12 @@
             }
 
             noData.style.display = 'none';
-            tbody.innerHTML = filteredData.map(item => `
+            tbody.innerHTML = filteredData.map(item => {
+                const isOpen = item.isOpen !== undefined ? item.isOpen : true;
+                const statusClass = isOpen ? 'open' : 'closed';
+                const statusText = isOpen ? 'مفتوح' : 'مغلق';
+                
+                return `
                 <tr>
                     <td><strong>${escapeHtml(item.name || 'غير متوفر')}</strong></td>
                     <td>${item.age || 'غير متوفر'}</td>
@@ -571,12 +718,24 @@
                         </span>
                     </td>
                     <td>${item.timeTaken || 0}ث</td>
+                    <td><code style="font-size:0.85rem;">${escapeHtml(item.ip || 'غير متوفر')}</code></td>
                     <td>${formatDate(item.timestamp)}</td>
+                    <td>
+                        <div class="action-cell">
+                            <button class="toggle-user-btn ${statusClass}" onclick="toggleUser('${item.id}', ${isOpen})">
+                                ${isOpen ? '🔓' : '🔒'}
+                            </button>
+                            <button class="delete-user-btn" onclick="deleteUser('${item.id}', '${escapeHtml(item.name)}')">
+                                🗑️
+                            </button>
+                        </div>
+                    </td>
                 </tr>
-            `).join('');
+            `}).join('');
         }
 
         function escapeHtml(text) {
+            if (!text) return 'غير متوفر';
             const div = document.createElement('div');
             div.textContent = text;
             return div.innerHTML;
