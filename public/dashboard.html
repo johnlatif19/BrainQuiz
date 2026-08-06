@@ -104,6 +104,40 @@
             outline: none;
             border-color: #302b63;
         }
+        .controls .action-buttons {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+        .controls .action-btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: 0.3s;
+            color: white;
+        }
+        .action-btn.delete-btn {
+            background: #e74c3c;
+        }
+        .action-btn.delete-btn:hover {
+            background: #c0392b;
+            transform: scale(1.05);
+        }
+        .action-btn.toggle-btn {
+            background: #f39c12;
+        }
+        .action-btn.toggle-btn:hover {
+            background: #e67e22;
+            transform: scale(1.05);
+        }
+        .action-btn.toggle-btn.active {
+            background: #27ae60;
+        }
+        .action-btn.toggle-btn.active:hover {
+            background: #229954;
+        }
         .table-container {
             padding: 0 30px 30px;
             overflow-x: auto;
@@ -205,6 +239,13 @@
                 width: 100%;
                 min-width: auto;
             }
+            .controls .action-buttons {
+                width: 100%;
+            }
+            .controls .action-btn {
+                flex: 1;
+                text-align: center;
+            }
             .table-container {
                 padding: 0 15px 15px;
             }
@@ -219,11 +260,11 @@
     <div class="header">
         <div class="header-left">
             <img src="https://i.postimg.cc/qMxzPzHh/Brain-Quiz.jpg" alt="BrainQuiz" />
-            <h1>📊 Admin Dashboard</h1>
+            <h1>Admin Dashboard</h1>
         </div>
         <div class="header-right">
             <span id="userDisplay" style="opacity:0.8;">Admin</span>
-            <button class="logout-btn" onclick="logout()">🚪 Logout</button>
+            <button class="logout-btn" onclick="logout()">Logout</button>
         </div>
     </div>
 
@@ -247,7 +288,7 @@
     </div>
 
     <div class="controls">
-        <input type="text" id="searchInput" placeholder="🔍 Search by name or answer..." oninput="filterData()" />
+        <input type="text" id="searchInput" placeholder="Search by name or answer..." oninput="filterData()" />
         <select id="sortSelect" onchange="sortData()">
             <option value="timestamp-desc">Date (Newest)</option>
             <option value="timestamp-asc">Date (Oldest)</option>
@@ -258,6 +299,10 @@
             <option value="time-asc">Time (Fastest)</option>
             <option value="time-desc">Time (Slowest)</option>
         </select>
+        <div class="action-buttons">
+            <button class="action-btn delete-btn" onclick="deleteAllData()">Delete All</button>
+            <button class="action-btn toggle-btn" id="toggleBtn" onclick="toggleQuiz()">Close Quiz</button>
+        </div>
     </div>
 
     <div class="table-container">
@@ -287,15 +332,17 @@
         let allData = [];
         let filteredData = [];
         let currentSort = 'timestamp-desc';
+        let isQuizOpen = true;
 
         // Check authentication
         document.addEventListener('DOMContentLoaded', () => {
             const token = localStorage.getItem('adminToken');
             if (!token) {
-                window.location.href = '/login.html';
+                window.location.href = '/login';
                 return;
             }
             fetchData(token);
+            fetchQuizStatus();
         });
 
         async function fetchData(token) {
@@ -309,7 +356,7 @@
                 if (!response.ok) {
                     if (response.status === 401 || response.status === 403) {
                         localStorage.removeItem('adminToken');
-                        window.location.href = '/login.html';
+                        window.location.href = '/login';
                         return;
                     }
                     throw new Error('Failed to fetch data');
@@ -324,8 +371,91 @@
             } catch (error) {
                 console.error('Error fetching data:', error);
                 document.getElementById('loadingIndicator').innerHTML = `
-                    <p style="color:#e74c3c;">❌ Error loading data. Please refresh the page.</p>
+                    <p style="color:#e74c3c;">Error loading data. Please refresh the page.</p>
                 `;
+            }
+        }
+
+        async function fetchQuizStatus() {
+            try {
+                const token = localStorage.getItem('adminToken');
+                const response = await fetch('/api/quiz-status', {
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
+                if (response.ok) {
+                    const data = await response.json();
+                    isQuizOpen = data.isOpen;
+                    updateToggleButton();
+                }
+            } catch (error) {
+                console.error('Error fetching quiz status:', error);
+            }
+        }
+
+        function updateToggleButton() {
+            const btn = document.getElementById('toggleBtn');
+            if (isQuizOpen) {
+                btn.textContent = 'Close Quiz';
+                btn.classList.remove('active');
+            } else {
+                btn.textContent = 'Open Quiz';
+                btn.classList.add('active');
+            }
+        }
+
+        async function toggleQuiz() {
+            try {
+                const token = localStorage.getItem('adminToken');
+                const response = await fetch('/api/toggle-quiz', {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ isOpen: !isQuizOpen })
+                });
+
+                if (response.ok) {
+                    isQuizOpen = !isQuizOpen;
+                    updateToggleButton();
+                    alert(`Quiz ${isQuizOpen ? 'opened' : 'closed'} successfully!`);
+                } else {
+                    alert('Failed to toggle quiz status');
+                }
+            } catch (error) {
+                console.error('Error toggling quiz:', error);
+                alert('Error toggling quiz status');
+            }
+        }
+
+        async function deleteAllData() {
+            if (!confirm('Are you sure you want to delete ALL quiz attempts? This action cannot be undone!')) {
+                return;
+            }
+
+            try {
+                const token = localStorage.getItem('adminToken');
+                const response = await fetch('/api/delete-all', {
+                    method: 'DELETE',
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
+
+                if (response.ok) {
+                    allData = [];
+                    filteredData = [];
+                    updateStats();
+                    renderTable();
+                    alert('All data deleted successfully!');
+                } else {
+                    alert('Failed to delete data');
+                }
+            } catch (error) {
+                console.error('Error deleting data:', error);
+                alert('Error deleting data');
             }
         }
 
@@ -367,7 +497,6 @@
         }
 
         function sortBy(field) {
-            // Toggle sort direction
             let direction = 'asc';
             if (currentSort.startsWith(field)) {
                 direction = currentSort.endsWith('asc') ? 'desc' : 'asc';
@@ -386,7 +515,6 @@
                 let valA = a[field] || '';
                 let valB = b[field] || '';
 
-                // Handle different types
                 if (field === 'timestamp') {
                     valA = new Date(valA).getTime();
                     valB = new Date(valB).getTime();
@@ -427,7 +555,7 @@
                     <td>${escapeHtml(item.answer || 'N/A')}</td>
                     <td>
                         <span class="badge ${item.isCorrect ? 'correct' : 'wrong'}">
-                            ${item.isCorrect ? '✅ Correct' : '❌ Wrong'}
+                            ${item.isCorrect ? 'Correct' : 'Wrong'}
                         </span>
                     </td>
                     <td>${item.timeTaken || 0}s</td>
@@ -460,7 +588,7 @@
 
         function logout() {
             localStorage.removeItem('adminToken');
-            window.location.href = '/login.html';
+            window.location.href = '/login';
         }
     </script>
 </body>
