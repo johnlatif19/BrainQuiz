@@ -24,6 +24,10 @@
       "dest": "/public/dashboard.html"
     },
     {
+      "src": "/result",
+      "dest": "/public/result.html"
+    },
+    {
       "src": "/(.*)",
       "dest": "/public/$1"
     }
