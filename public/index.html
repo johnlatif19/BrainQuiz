@@ -1,0 +1,449 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>BrainQuiz - اختبار الذكاء</title>
+    <link rel="icon" href="https://i.postimg.cc/qMxzPzHh/Brain-Quiz.jpg" />
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #0f0c29, #302b63, #24243e);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+        .container {
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 20px;
+            padding: 40px;
+            max-width: 700px;
+            width: 100%;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+            backdrop-filter: blur(10px);
+        }
+        .logo {
+            text-align: center;
+            margin-bottom: 25px;
+        }
+        .logo-wrapper {
+            display: inline-block;
+            position: relative;
+            width: 100px;
+            height: 100px;
+        }
+        .logo img {
+            width: 100px;
+            height: 100px;
+            border-radius: 50%;
+            border: 4px solid #302b63;
+            object-fit: cover;
+            background: white;
+            padding: 5px;
+            box-shadow: 0 4px 20px rgba(48, 43, 99, 0.3);
+            transition: transform 0.3s;
+        }
+        .logo img:hover {
+            transform: scale(1.05) rotate(-5deg);
+        }
+        .logo h1 {
+            color: #302b63;
+            font-size: 2.2rem;
+            margin-top: 12px;
+            font-weight: 800;
+            letter-spacing: -0.5px;
+        }
+        .logo h1 span {
+            background: linear-gradient(135deg, #302b63, #6c5ce7);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        .logo .subtitle {
+            color: #666;
+            font-size: 0.95rem;
+            margin-top: -5px;
+        }
+        .form-group {
+            margin-bottom: 20px;
+        }
+        label {
+            display: block;
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 8px;
+            font-size: 1.05rem;
+        }
+        input[type="text"],
+        input[type="number"] {
+            width: 100%;
+            padding: 14px 18px;
+            border: 2px solid #e0e0e0;
+            border-radius: 12px;
+            font-size: 1rem;
+            transition: all 0.3s;
+            background: #fafafa;
+            font-family: inherit;
+        }
+        input:focus {
+            outline: none;
+            border-color: #302b63;
+            background: white;
+            box-shadow: 0 0 0 4px rgba(48, 43, 99, 0.1);
+        }
+        .btn {
+            background: linear-gradient(135deg, #302b63, #6c5ce7);
+            color: white;
+            border: none;
+            padding: 16px 28px;
+            border-radius: 12px;
+            font-size: 1.1rem;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.3s;
+            width: 100%;
+            font-family: inherit;
+            letter-spacing: 0.5px;
+        }
+        .btn:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 10px 30px rgba(48, 43, 99, 0.4);
+        }
+        .btn:active {
+            transform: translateY(0);
+        }
+        .btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+        .quiz-section {
+            display: none;
+            animation: fadeIn 0.5s ease;
+        }
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(30px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        .puzzle-image {
+            width: 100%;
+            max-height: 400px;
+            object-fit: contain;
+            border-radius: 16px;
+            margin: 20px 0;
+            border: 3px solid #e0e0e0;
+            background: #fafafa;
+            padding: 10px;
+        }
+        .timer {
+            font-size: 3rem;
+            font-weight: 800;
+            color: #302b63;
+            text-align: center;
+            margin: 20px 0;
+            padding: 20px;
+            background: linear-gradient(135deg, #f0f0ff, #e8e8ff);
+            border-radius: 16px;
+            border: 2px solid #d0d0ff;
+            font-variant-numeric: tabular-nums;
+        }
+        .timer.warning {
+            color: #e74c3c;
+            background: linear-gradient(135deg, #ffe8e8, #ffd0d0);
+            border-color: #ffb0b0;
+            animation: pulse 0.5s infinite alternate;
+        }
+        @keyframes pulse {
+            from {
+                opacity: 1;
+                transform: scale(1);
+            }
+            to {
+                opacity: 0.7;
+                transform: scale(1.02);
+            }
+        }
+        .result {
+            text-align: center;
+            font-size: 2rem;
+            font-weight: 800;
+            margin-top: 20px;
+            padding: 25px;
+            border-radius: 16px;
+            animation: fadeIn 0.5s ease;
+        }
+        .result.correct {
+            color: #27ae60;
+            background: #eafaf1;
+            border: 2px solid #82e0aa;
+        }
+        .result.wrong {
+            color: #e74c3c;
+            background: #fdedec;
+            border: 2px solid #f5b7b1;
+        }
+        .hidden {
+            display: none;
+        }
+        .user-info {
+            background: linear-gradient(135deg, #f8f9fa, #e8e8ff);
+            padding: 18px;
+            border-radius: 12px;
+            margin-bottom: 20px;
+            color: #555;
+            border: 2px solid #d0d0ff;
+            font-size: 1.05rem;
+            text-align: center;
+        }
+        .user-info strong {
+            color: #302b63;
+            font-weight: 700;
+        }
+        .user-info .separator {
+            color: #302b63;
+            margin: 0 10px;
+            opacity: 0.5;
+        }
+        @media (max-width: 600px) {
+            .container {
+                padding: 25px;
+            }
+            .logo h1 {
+                font-size: 1.8rem;
+            }
+            .timer {
+                font-size: 2.2rem;
+                padding: 15px;
+            }
+            .result {
+                font-size: 1.5rem;
+                padding: 18px;
+            }
+            .user-info {
+                font-size: 0.95rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="logo">
+            <div class="logo-wrapper">
+                <img src="https://i.postimg.cc/qMxzPzHh/Brain-Quiz.jpg" alt="شعار BrainQuiz" onerror="this.style.display='none'" />
+            </div>
+            <h1><span>🧠 BrainQuiz</span></h1>
+            <div class="subtitle">اختبر ذكاءك وحل اللغز!</div>
+        </div>
+
+        <!-- نموذج معلومات المستخدم -->
+        <div id="userForm">
+            <div class="form-group">
+                <label for="userName">👤 الاسم</label>
+                <input type="text" id="userName" placeholder="أدخل اسمك الكامل" required />
+            </div>
+            <div class="form-group">
+                <label for="userAge">🎂 العمر</label>
+                <input type="number" id="userAge" placeholder="أدخل عمرك" required min="1" max="120" />
+            </div>
+            <button class="btn" onclick="startQuiz()">🚀 ابدأ التحدي</button>
+        </div>
+
+        <!-- قسم الاختبار -->
+        <div id="quizSection" class="quiz-section">
+            <div class="user-info" id="userDisplay"></div>
+            <img src="https://i.postimg.cc/sfKm3Dzg/MATH.jpg" alt="لغز رياضي" class="puzzle-image" />
+            <div class="timer" id="timer">01:00</div>
+            <div class="form-group">
+                <label for="answerInput">✏️ إجابتك</label>
+                <input type="text" id="answerInput" placeholder="اكتب الإجابة (48 أو ٤٨ أو شرح الحل)" dir="auto" />
+            </div>
+            <button class="btn" id="submitBtn" onclick="submitAnswer()">✅ تأكيد الإجابة</button>
+            <div id="result" class="result hidden"></div>
+        </div>
+    </div>
+
+    <script>
+        let userData = {};
+        let timeLeft = 60;
+        let timerInterval = null;
+        let isAnswered = false;
+        let startTime = null;
+
+        function startQuiz() {
+            const name = document.getElementById('userName').value.trim();
+            const age = document.getElementById('userAge').value.trim();
+
+            if (!name || !age) {
+                alert('⚠️ الرجاء ملء جميع الحقول!');
+                return;
+            }
+
+            if (isNaN(age) || parseInt(age) < 1 || parseInt(age) > 120) {
+                alert('⚠️ الرجاء إدخال عمر صحيح (1-120)');
+                return;
+            }
+
+            userData = {
+                name: name,
+                age: parseInt(age)
+            };
+
+            document.getElementById('userDisplay').innerHTML = `
+                <strong>👤 الاسم:</strong> ${name} 
+                <span class="separator">|</span> 
+                <strong>🎂 العمر:</strong> ${age} سنة
+            `;
+
+            document.getElementById('userForm').style.display = 'none';
+            document.getElementById('quizSection').style.display = 'block';
+
+            startTime = Date.now();
+            startTimer();
+        }
+
+        function startTimer() {
+            timerInterval = setInterval(() => {
+                timeLeft--;
+                updateTimerDisplay();
+
+                if (timeLeft <= 0) {
+                    clearInterval(timerInterval);
+                    document.getElementById('timer').classList.add('warning');
+                    document.getElementById('answerInput').disabled = true;
+                    document.getElementById('submitBtn').disabled = true;
+                    if (!isAnswered) {
+                        submitAnswer(true);
+                    }
+                }
+            }, 1000);
+        }
+
+        function updateTimerDisplay() {
+            const minutes = Math.floor(timeLeft / 60);
+            const seconds = timeLeft % 60;
+            document.getElementById('timer').textContent = 
+                `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+            
+            if (timeLeft <= 10) {
+                document.getElementById('timer').classList.add('warning');
+            }
+        }
+
+        function submitAnswer(autoSubmit = false) {
+            if (isAnswered) return;
+
+            const answerInput = document.getElementById('answerInput');
+            const answer = answerInput.value.trim();
+            
+            if (!answer && !autoSubmit) {
+                alert('⚠️ الرجاء إدخال إجابتك!');
+                return;
+            }
+
+            isAnswered = true;
+            clearInterval(timerInterval);
+            
+            const timeTaken = Math.floor((Date.now() - startTime) / 1000);
+            const isCorrect = validateAnswer(answer);
+
+            document.getElementById('submitBtn').disabled = true;
+            document.getElementById('answerInput').disabled = true;
+
+            const resultDiv = document.getElementById('result');
+            resultDiv.classList.remove('hidden', 'correct', 'wrong');
+            resultDiv.textContent = isCorrect ? '✅ إجابة صحيحة! 🎉' : '❌ إجابة خاطئة! 😅';
+            resultDiv.classList.add(isCorrect ? 'correct' : 'wrong');
+
+            // حفظ البيانات في Firebase
+            saveData({
+                ...userData,
+                answer: answer || 'انتهى الوقت',
+                isCorrect: isCorrect,
+                timeTaken: timeTaken,
+                timestamp: new Date().toISOString()
+            });
+        }
+
+        function validateAnswer(answer) {
+            const cleaned = answer.trim();
+            
+            // التحقق من الإجابة المباشرة
+            if (cleaned === '48' || cleaned === '٤٨') {
+                return true;
+            }
+
+            // أنماط الإجابات المقبولة
+            const patterns = [
+                /8\s*\*\s*6/i,
+                /6\s*\*\s*8/i,
+                /4\s*\*\s*12/i,
+                /12\s*\*\s*4/i,
+                /3\s*\*\s*16/i,
+                /16\s*\*\s*3/i,
+                /2\s*\*\s*24/i,
+                /24\s*\*\s*2/i,
+                /48\s*[=+]/,
+                /[=+]\s*48/,
+                /forty\s*eight/i,
+                /forty-eight/i,
+                /\b48\b/,
+                /أربع[يى]ن\s*وثمانية/i,
+                /ثمانية\s*وأربع[يى]ن/i,
+                /ثمانية\s*و\s*أربع[يى]ن/i,
+                /أربع[يى]ن\s*و\s*ثمانية/i,
+                /٤٨/,
+                /48\s*$/,
+                /^\s*48\s*$/
+            ];
+
+            for (let pattern of patterns) {
+                if (pattern.test(cleaned)) {
+                    return true;
+                }
+            }
+
+            // التحقق من وجود الرقم 48 في الإجابة
+            if (cleaned.includes('48') || cleaned.includes('٤٨')) {
+                return true;
+            }
+
+            return false;
+        }
+
+        async function saveData(data) {
+            try {
+                const response = await fetch('/api/submit', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(data),
+                });
+
+                if (!response.ok) {
+                    throw new Error('فشل في حفظ البيانات');
+                }
+
+                const result = await response.json();
+                console.log('تم حفظ البيانات بنجاح:', result);
+            } catch (error) {
+                console.error('خطأ في حفظ البيانات:', error);
+                alert('⚠️ حدث خطأ في حفظ النتائج. الرجاء المحاولة مرة أخرى.');
+            }
+        }
+    </script>
+</body>
+</html>
