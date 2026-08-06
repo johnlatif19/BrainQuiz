@@ -116,12 +116,6 @@
             transform: translateY(-3px);
             box-shadow: 0 10px 30px rgba(48, 43, 99, 0.4);
         }
-        .btn-secondary {
-            background: linear-gradient(135deg, #e74c3c, #c0392b);
-        }
-        .btn-secondary:hover {
-            box-shadow: 0 10px 30px rgba(231, 76, 60, 0.4);
-        }
         .lock-message {
             background: #fff3cd;
             border: 2px solid #ffc107;
@@ -170,16 +164,13 @@
         </div>
 
         <button class="btn" onclick="goHome()">العودة إلى الصفحة الرئيسية</button>
-        <button class="btn btn-secondary" onclick="logout()">تسجيل الخروج</button>
     </div>
 
     <script>
-        // التحقق من وجود نتيجة
         document.addEventListener('DOMContentLoaded', function() {
             const resultData = localStorage.getItem('quizResult');
             
             if (!resultData) {
-                // إذا لم توجد نتيجة، إعادة توجيه إلى الصفحة الرئيسية
                 window.location.href = '/';
                 return;
             }
@@ -228,21 +219,11 @@
             window.location.href = '/';
         }
 
-        function logout() {
-            // مسح بيانات الاختبار
-            localStorage.removeItem('quizResult');
-            localStorage.removeItem('quizLocked');
-            window.location.href = '/';
-        }
-
-        // منع العودة إلى الخلف
         window.addEventListener('popstate', function(e) {
             e.preventDefault();
-            // البقاء في نفس الصفحة
             history.pushState(null, null, window.location.href);
         });
 
-        // إضافة حالة للتاريخ لمنع العودة
         history.pushState(null, null, window.location.href);
         window.addEventListener('popstate', function(e) {
             history.pushState(null, null, window.location.href);
