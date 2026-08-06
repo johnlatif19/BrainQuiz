@@ -105,9 +105,38 @@ async function logAction(action, details) {
     }
 }
 
+// Helper function to validate quiz data
+function validateQuizData(data) {
+    const errors = [];
+    
+    if (!data.name || typeof data.name !== 'string' || data.name.trim().length === 0) {
+        errors.push('Name is required and must be a non-empty string');
+    }
+    
+    if (!data.age || typeof data.age !== 'number' || data.age < 1 || data.age > 120) {
+        errors.push('Age must be a number between 1 and 120');
+    }
+    
+    if (data.answer === undefined || data.answer === null) {
+        errors.push('Answer is required');
+    }
+    
+    if (typeof data.isCorrect !== 'boolean') {
+        errors.push('isCorrect must be a boolean');
+    }
+    
+    if (typeof data.timeTaken !== 'number' || data.timeTaken < 0) {
+        errors.push('timeTaken must be a non-negative number');
+    }
+    
+    return errors;
+}
+
 // POST /api/submit - Save quiz attempt
 app.post('/api/submit', async (req, res) => {
     try {
+        console.log('📥 Received submission:', req.body);
+        
         // Check if quiz is open
         const settingsDoc = await db.collection(SETTINGS_COLLECTION).doc('quiz_settings').get();
         let isOpen = false;
@@ -116,14 +145,25 @@ app.post('/api/submit', async (req, res) => {
         }
         
         if (!isOpen) {
+            console.log('❌ Quiz is closed');
             return res.status(403).json({ error: 'Quiz is currently closed' });
         }
 
         const { name, age, answer, isCorrect, timeTaken, timestamp, ip } = req.body;
 
+        console.log('📊 Data received:', { name, age, answer, isCorrect, timeTaken, ip });
+
         // Validate required fields
         if (!name || !age || answer === undefined || isCorrect === undefined || timeTaken === undefined) {
+            console.log('❌ Missing fields:', { name, age, answer, isCorrect, timeTaken });
             return res.status(400).json({ error: 'Missing required fields' });
+        }
+
+        // Validate data
+        const validationErrors = validateQuizData(req.body);
+        if (validationErrors.length > 0) {
+            console.log('❌ Validation errors:', validationErrors);
+            return res.status(400).json({ error: validationErrors.join(', ') });
         }
 
         // Check if user already participated (by name, age, IP)
@@ -131,24 +171,13 @@ app.post('/api/submit', async (req, res) => {
         const existingUser = await db.collection(USERS_COLLECTION)
             .where('name', '==', name.trim())
             .where('age', '==', age)
-            .where('ip', '==', userIP)
             .get();
 
         if (!existingUser.empty) {
+            console.log('⚠️ User already participated:', { name, age });
             return res.status(403).json({ 
                 error: 'You have already participated in this quiz. Multiple attempts are not allowed.' 
             });
-        }
-
-        // Validate data types
-        if (typeof name !== 'string' || name.trim().length === 0) {
-            return res.status(400).json({ error: 'Invalid name' });
-        }
-        if (typeof age !== 'number' || age < 1 || age > 120) {
-            return res.status(400).json({ error: 'Invalid age' });
-        }
-        if (typeof timeTaken !== 'number' || timeTaken < 0) {
-            return res.status(400).json({ error: 'Invalid time taken' });
         }
 
         // Prepare data for Firestore
@@ -161,15 +190,18 @@ app.post('/api/submit', async (req, res) => {
             ip: userIP,
             timestamp: timestamp || new Date().toISOString(),
             createdAt: admin.firestore.FieldValue.serverTimestamp(),
-            status: 'completed'
+            status: 'completed',
+            isOpen: true
         };
 
+        console.log('💾 Saving data to Firestore:', data);
+
         // Save user to users collection (to prevent re-entry)
-        await db.collection(USERS_COLLECTION).add({
+        const userRef = await db.collection(USERS_COLLECTION).add({
             name: name.trim(),
             age: age,
             ip: userIP,
-            attemptId: null, // Will be updated after saving attempt
+            attemptId: null,
             createdAt: admin.firestore.FieldValue.serverTimestamp()
         });
 
@@ -177,25 +209,18 @@ app.post('/api/submit', async (req, res) => {
         const docRef = await db.collection(COLLECTION_NAME).add(data);
         
         // Update user with attempt ID
-        const userQuery = await db.collection(USERS_COLLECTION)
-            .where('name', '==', name.trim())
-            .where('age', '==', age)
-            .where('ip', '==', userIP)
-            .get();
-        
-        if (!userQuery.empty) {
-            userQuery.forEach(async (doc) => {
-                await doc.ref.update({ attemptId: docRef.id });
-            });
-        }
+        await userRef.update({ attemptId: docRef.id });
 
         // Log action
         await logAction('quiz_attempt', {
             name: name.trim(),
             age: age,
             isCorrect: Boolean(isCorrect),
-            attemptId: docRef.id
+            attemptId: docRef.id,
+            ip: userIP
         });
+
+        console.log('✅ Data saved successfully! ID:', docRef.id);
 
         res.status(201).json({
             success: true,
@@ -205,7 +230,11 @@ app.post('/api/submit', async (req, res) => {
 
     } catch (error) {
         console.error('❌ Error saving data:', error);
-        res.status(500).json({ error: 'Failed to save data' });
+        console.error('❌ Error stack:', error.stack);
+        res.status(500).json({ 
+            error: 'Failed to save data',
+            details: error.message 
+        });
     }
 });
 
@@ -277,7 +306,8 @@ app.get('/api/dashboard', authenticateToken, async (req, res) => {
                 timeTaken: docData.timeTaken || 0,
                 ip: docData.ip || 'unknown',
                 timestamp: docData.timestamp || new Date().toISOString(),
-                status: docData.status || 'completed'
+                status: docData.status || 'completed',
+                isOpen: docData.isOpen !== undefined ? docData.isOpen : true
             });
         });
 
@@ -294,7 +324,6 @@ app.delete('/api/delete/:id', authenticateToken, async (req, res) => {
     try {
         const { id } = req.params;
         
-        // Get the attempt first to log details
         const attemptDoc = await db.collection(COLLECTION_NAME).doc(id).get();
         if (!attemptDoc.exists) {
             return res.status(404).json({ error: 'Attempt not found' });
@@ -302,10 +331,8 @@ app.delete('/api/delete/:id', authenticateToken, async (req, res) => {
         
         const attemptData = attemptDoc.data();
         
-        // Delete the attempt
         await db.collection(COLLECTION_NAME).doc(id).delete();
         
-        // Delete associated user entry
         const userQuery = await db.collection(USERS_COLLECTION)
             .where('attemptId', '==', id)
             .get();
@@ -316,7 +343,6 @@ app.delete('/api/delete/:id', authenticateToken, async (req, res) => {
             });
         }
 
-        // Log action
         await logAction('delete_attempt', {
             attemptId: id,
             name: attemptData.name,
@@ -344,7 +370,6 @@ app.delete('/api/delete-all', authenticateToken, async (req, res) => {
 
         await batch.commit();
 
-        // Delete all users as well
         const usersSnapshot = await db.collection(USERS_COLLECTION).get();
         const usersBatch = db.batch();
         usersSnapshot.forEach(doc => {
@@ -378,19 +403,17 @@ app.post('/api/toggle-user/:id', authenticateToken, async (req, res) => {
         }
 
         const userData = userDoc.data();
-        const newStatus = isOpen ? 'open' : 'closed';
 
         await db.collection(COLLECTION_NAME).doc(id).update({
-            status: newStatus,
             isOpen: isOpen,
+            status: isOpen ? 'open' : 'closed',
             updatedAt: admin.firestore.FieldValue.serverTimestamp()
         });
 
         await logAction('toggle_user', {
             attemptId: id,
             name: userData.name,
-            isOpen: isOpen,
-            newStatus: newStatus
+            isOpen: isOpen
         });
 
         res.json({ 
