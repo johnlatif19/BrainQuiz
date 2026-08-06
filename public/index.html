@@ -354,6 +354,7 @@
         let isAnswered = false;
         let startTime = null;
         let isLocked = false;
+        let isSaving = false; // لمنع تكرار الحفظ
 
         // التحقق من حالة القفل عند تحميل الصفحة
         document.addEventListener('DOMContentLoaded', function() {
@@ -379,7 +380,6 @@
 
         function getIP() {
             return new Promise((resolve) => {
-                // Try multiple IP services
                 const services = [
                     'https://api.ipify.org?format=json',
                     'https://api.myip.com',
@@ -424,7 +424,6 @@
                 return;
             }
 
-            // Get IP
             const ip = await getIP();
 
             userData = {
@@ -460,33 +459,44 @@
                     document.getElementById('timer').classList.add('warning');
                     document.getElementById('answerInput').disabled = true;
                     document.getElementById('submitBtn').disabled = true;
-                    if (!isAnswered) {
-                        const timeTaken = 60;
-                        const isCorrect = false;
-                        
-                        // Save data even on timeout
-                        saveData({
-                            ...userData,
-                            answer: 'انتهى الوقت',
-                            isCorrect: isCorrect,
-                            timeTaken: timeTaken,
-                            timestamp: new Date().toISOString()
-                        });
-
-                        localStorage.setItem('quizResult', JSON.stringify({
-                            isCorrect: isCorrect,
-                            answer: 'انتهى الوقت',
-                            timeTaken: timeTaken,
-                            userData: userData
-                        }));
-
-                        lockQuiz('انتهى الوقت');
-
-                        setTimeout(() => {
-                            window.location.href = '/result.html';
-                        }, 1000);
+                    if (!isAnswered && !isSaving) {
+                        handleTimeout();
                     }
                 }
+            }, 1000);
+        }
+
+        async function handleTimeout() {
+            if (isSaving) return;
+            isSaving = true;
+            
+            const timeTaken = 60;
+            const isCorrect = false;
+            
+            try {
+                // محاولة حفظ البيانات
+                await saveData({
+                    ...userData,
+                    answer: 'انتهى الوقت',
+                    isCorrect: isCorrect,
+                    timeTaken: timeTaken,
+                    timestamp: new Date().toISOString()
+                });
+            } catch (error) {
+                console.error('Error saving timeout data:', error);
+            }
+
+            localStorage.setItem('quizResult', JSON.stringify({
+                isCorrect: isCorrect,
+                answer: 'انتهى الوقت',
+                timeTaken: timeTaken,
+                userData: userData
+            }));
+
+            lockQuiz('انتهى الوقت');
+
+            setTimeout(() => {
+                window.location.href = '/result.html';
             }, 1000);
         }
 
@@ -502,7 +512,7 @@
         }
 
         async function submitAnswer() {
-            if (isAnswered) return;
+            if (isAnswered || isSaving) return;
 
             const answerInput = document.getElementById('answerInput');
             const answer = answerInput.value.trim();
@@ -512,8 +522,9 @@
                 return;
             }
 
-            // Disable inputs immediately
+            // منع الضغط المتكرر
             isAnswered = true;
+            isSaving = true;
             clearInterval(timerInterval);
             
             const timeTaken = Math.floor((Date.now() - startTime) / 1000);
@@ -524,7 +535,9 @@
             document.getElementById('answerInput').disabled = true;
 
             try {
-                // Save data to database
+                console.log('📤 Saving answer...');
+                
+                // محاولة حفظ البيانات
                 const saveResult = await saveData({
                     ...userData,
                     answer: answer,
@@ -541,39 +554,25 @@
                     showToast('تم حفظ إجابتك محلياً، قد تكون هناك مشكلة في الاتصال بقاعدة البيانات.', 'warning');
                 }
 
-                // Store result in localStorage
-                localStorage.setItem('quizResult', JSON.stringify({
-                    isCorrect: isCorrect,
-                    answer: answer,
-                    timeTaken: timeTaken,
-                    userData: userData
-                }));
-
-                // Lock quiz
-                lockQuiz('تم الإجابة على الاختبار');
-
-                // Go to result page after a short delay
-                setTimeout(() => {
-                    window.location.href = '/result.html';
-                }, 500);
-
             } catch (error) {
                 console.error('❌ Error in submitAnswer:', error);
                 showToast('حدث خطأ أثناء حفظ البيانات، ولكن سيتم عرض النتيجة.', 'error');
-                
-                // Still go to result even if save fails
-                localStorage.setItem('quizResult', JSON.stringify({
-                    isCorrect: isCorrect,
-                    answer: answer,
-                    timeTaken: timeTaken,
-                    userData: userData
-                }));
-                lockQuiz('تم الإجابة على الاختبار');
-                
-                setTimeout(() => {
-                    window.location.href = '/result.html';
-                }, 1000);
             }
+
+            // تخزين النتيجة في localStorage بغض النظر عن نتيجة الحفظ
+            localStorage.setItem('quizResult', JSON.stringify({
+                isCorrect: isCorrect,
+                answer: answer,
+                timeTaken: timeTaken,
+                userData: userData            }));
+
+            // قفل الاختبار
+            lockQuiz('تم الإجابة على الاختبار');
+
+            // الانتقال إلى صفحة النتيجة
+            setTimeout(() => {
+                window.location.href = '/result.html';
+            }, 800);
         }
 
         async function saveData(data) {
@@ -588,7 +587,6 @@
                     body: JSON.stringify(data),
                 });
 
-                // Get response text first for debugging
                 const responseText = await response.text();
                 console.log('📥 Raw response:', responseText);
 
@@ -609,7 +607,6 @@
                 return result;
             } catch (error) {
                 console.error('❌ Error in saveData:', error);
-                // Don't throw, just log and return null
                 return null;
             }
         }
@@ -628,12 +625,10 @@
         function validateAnswer(answer) {
             const cleaned = answer.trim();
             
-            // Direct match
             if (cleaned === '48' || cleaned === '٤٨') {
                 return true;
             }
 
-            // Patterns
             const patterns = [
                 /8\s*\*\s*6/i,
                 /6\s*\*\s*8/i,
@@ -663,7 +658,6 @@
                 }
             }
 
-            // Check if 48 appears in the answer
             if (cleaned.includes('48') || cleaned.includes('٤٨')) {
                 return true;
             }
@@ -671,13 +665,27 @@
             return false;
         }
 
-        // Prevent page reload after lock
+        // منع رسالة "هل تريد مغادرة الموقع" بعد القفل
         window.addEventListener('beforeunload', function(e) {
-            if (isLocked) {
+            // فقط إذا كان الاختبار مقفلاً ولم يتم الحفظ
+            if (isLocked && !isSaving) {
+                // إزالة الرسالة الافتراضية
                 e.preventDefault();
+                // في بعض المتصفحات، إرجاع سلسلة فارغة يمنع ظهور الرسالة
                 e.returnValue = '';
             }
         });
+
+        // منع العودة للخلف بعد القفل
+        window.addEventListener('popstate', function(e) {
+            if (isLocked) {
+                e.preventDefault();
+                history.pushState(null, null, window.location.href);
+            }
+        });
+
+        // إضافة حالة للتاريخ
+        history.pushState(null, null, window.location.href);
     </script>
 </body>
 </html>
