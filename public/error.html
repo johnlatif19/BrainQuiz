@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>خطأ - BrainQuiz</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #0f0c29, #302b63, #24243e);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+        .container {
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 20px;
+            padding: 40px;
+            max-width: 500px;
+            width: 100%;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+            text-align: center;
+        }
+        .error-icon {
+            font-size: 4rem;
+            margin: 20px 0;
+        }
+        .error-box {
+            background: #fdedec;
+            border: 3px solid #e74c3c;
+            padding: 25px;
+            border-radius: 16px;
+            margin: 20px 0;
+        }
+        .error-box h2 {
+            color: #e74c3c;
+            font-size: 1.8rem;
+            margin-bottom: 10px;
+        }
+        .error-details {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 12px;
+            margin: 15px 0;
+            text-align: right;
+            color: #555;
+            font-size: 0.95rem;
+            direction: ltr;
+            text-align: left;
+            overflow-x: auto;
+            white-space: pre-wrap;
+            word-break: break-all;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+        .btn {
+            background: linear-gradient(135deg, #302b63, #6c5ce7);
+            color: white;
+            border: none;
+            padding: 16px 28px;
+            border-radius: 12px;
+            font-size: 1.1rem;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.3s;
+            width: 100%;
+            font-family: inherit;
+            margin-top: 10px;
+        }
+        .btn:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 10px 30px rgba(48, 43, 99, 0.4);
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="error-icon">❌</div>
+        <div class="error-box">
+            <h2>حدث خطأ</h2>
+            <p id="errorMessage">تعذر حفظ البيانات. يرجى المحاولة مرة أخرى.</p>
+        </div>
+        <div id="errorDetailsContainer" style="display:none;">
+            <h3 style="color:#302b63; margin-bottom:10px;">تفاصيل الخطأ:</h3>
+            <div class="error-details" id="errorDetails"></div>
+        </div>
+        <button class="btn" onclick="goBack()">العودة</button>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const params = new URLSearchParams(window.location.search);
+            const message = params.get('message') || 'حدث خطأ غير معروف';
+            const details = params.get('details') || '';
+            
+            document.getElementById('errorMessage').textContent = message;
+            
+            if (details) {
+                document.getElementById('errorDetailsContainer').style.display = 'block';
+                document.getElementById('errorDetails').textContent = details;
+            }
+        });
+
+        function goBack() {
+            window.history.back();
+        }
+    </script>
+</body>
+</html>
