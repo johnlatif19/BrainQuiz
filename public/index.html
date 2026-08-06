@@ -245,6 +245,38 @@
             border-radius: 8px;
             margin: 15px 0;
         }
+        .toast {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            background: #333;
+            color: white;
+            padding: 15px 25px;
+            border-radius: 8px;
+            z-index: 1001;
+            display: none;
+            animation: slideIn 0.3s ease;
+            max-width: 90%;
+        }
+        .toast.success {
+            background: #27ae60;
+        }
+        .toast.error {
+            background: #e74c3c;
+        }
+        .toast.warning {
+            background: #f39c12;
+        }
+        @keyframes slideIn {
+            from {
+                transform: translateX(100%);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
         @media (max-width: 600px) {
             .container {
                 padding: 25px;
@@ -312,6 +344,9 @@
         </div>
     </div>
 
+    <!-- Toast notification -->
+    <div class="toast" id="toast"></div>
+
     <script>
         let userData = {};
         let timeLeft = 60;
@@ -332,12 +367,46 @@
             }
         });
 
+        function showToast(message, type = 'success') {
+            const toast = document.getElementById('toast');
+            toast.textContent = message;
+            toast.className = 'toast ' + type;
+            toast.style.display = 'block';
+            setTimeout(() => {
+                toast.style.display = 'none';
+            }, 3000);
+        }
+
         function getIP() {
             return new Promise((resolve) => {
-                fetch('https://api.ipify.org?format=json')
-                    .then(response => response.json())
-                    .then(data => resolve(data.ip))
-                    .catch(() => resolve('unknown'));
+                // Try multiple IP services
+                const services = [
+                    'https://api.ipify.org?format=json',
+                    'https://api.myip.com',
+                    'https://ipapi.co/json/'
+                ];
+                
+                let attempts = 0;
+                let maxAttempts = services.length;
+                
+                const tryService = (index) => {
+                    if (index >= maxAttempts) {
+                        resolve('unknown');
+                        return;
+                    }
+                    
+                    fetch(services[index])
+                        .then(response => response.json())
+                        .then(data => {
+                            const ip = data.ip || data.ipAddress || data.ipv4 || 'unknown';
+                            resolve(ip);
+                        })
+                        .catch(() => {
+                            tryService(index + 1);
+                        });
+                };
+                
+                tryService(0);
             });
         }
 
@@ -346,12 +415,12 @@
             const age = document.getElementById('userAge').value.trim();
 
             if (!name || !age) {
-                alert('الرجاء ملء جميع الحقول!');
+                showToast('الرجاء ملء جميع الحقول!', 'warning');
                 return;
             }
 
             if (isNaN(age) || parseInt(age) < 1 || parseInt(age) > 120) {
-                alert('الرجاء إدخال عمر صحيح (1-120)');
+                showToast('الرجاء إدخال عمر صحيح (1-120)', 'warning');
                 return;
             }
 
@@ -364,10 +433,14 @@
                 ip: ip
             };
 
+            console.log('👤 User data:', userData);
+
             document.getElementById('userDisplay').innerHTML = `
                 <strong>الاسم:</strong> ${name} 
                 <span class="separator">|</span> 
                 <strong>العمر:</strong> ${age} سنة
+                <span class="separator">|</span> 
+                <strong>IP:</strong> ${ip}
             `;
 
             document.getElementById('userForm').style.display = 'none';
@@ -391,6 +464,7 @@
                         const timeTaken = 60;
                         const isCorrect = false;
                         
+                        // Save data even on timeout
                         saveData({
                             ...userData,
                             answer: 'انتهى الوقت',
@@ -434,10 +508,11 @@
             const answer = answerInput.value.trim();
             
             if (!answer) {
-                alert('الرجاء إدخال إجابتك!');
+                showToast('الرجاء إدخال إجابتك!', 'warning');
                 return;
             }
 
+            // Disable inputs immediately
             isAnswered = true;
             clearInterval(timerInterval);
             
@@ -445,28 +520,98 @@
             const isCorrect = validateAnswer(answer);
 
             document.getElementById('submitBtn').disabled = true;
+            document.getElementById('submitBtn').textContent = 'جاري الحفظ...';
             document.getElementById('answerInput').disabled = true;
 
-            // Save data
-            await saveData({
-                ...userData,
-                answer: answer,
-                isCorrect: isCorrect,
-                timeTaken: timeTaken,
-                timestamp: new Date().toISOString()
-            });
+            try {
+                // Save data to database
+                const saveResult = await saveData({
+                    ...userData,
+                    answer: answer,
+                    isCorrect: isCorrect,
+                    timeTaken: timeTaken,
+                    timestamp: new Date().toISOString()
+                });
 
-            localStorage.setItem('quizResult', JSON.stringify({
-                isCorrect: isCorrect,
-                answer: answer,
-                timeTaken: timeTaken,
-                userData: userData
-            }));
+                if (saveResult) {
+                    console.log('✅ Data saved with ID:', saveResult.id);
+                    showToast('تم حفظ إجابتك بنجاح!', 'success');
+                } else {
+                    console.warn('⚠️ Data may not have been saved to database');
+                    showToast('تم حفظ إجابتك محلياً، قد تكون هناك مشكلة في الاتصال بقاعدة البيانات.', 'warning');
+                }
 
-            lockQuiz('تم الإجابة على الاختبار');
+                // Store result in localStorage
+                localStorage.setItem('quizResult', JSON.stringify({
+                    isCorrect: isCorrect,
+                    answer: answer,
+                    timeTaken: timeTaken,
+                    userData: userData
+                }));
 
-            // Go to result directly
-            window.location.href = '/result.html';
+                // Lock quiz
+                lockQuiz('تم الإجابة على الاختبار');
+
+                // Go to result page after a short delay
+                setTimeout(() => {
+                    window.location.href = '/result.html';
+                }, 500);
+
+            } catch (error) {
+                console.error('❌ Error in submitAnswer:', error);
+                showToast('حدث خطأ أثناء حفظ البيانات، ولكن سيتم عرض النتيجة.', 'error');
+                
+                // Still go to result even if save fails
+                localStorage.setItem('quizResult', JSON.stringify({
+                    isCorrect: isCorrect,
+                    answer: answer,
+                    timeTaken: timeTaken,
+                    userData: userData
+                }));
+                lockQuiz('تم الإجابة على الاختبار');
+                
+                setTimeout(() => {
+                    window.location.href = '/result.html';
+                }, 1000);
+            }
+        }
+
+        async function saveData(data) {
+            try {
+                console.log('📤 Sending data to server:', data);
+                
+                const response = await fetch('/api/submit', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(data),
+                });
+
+                // Get response text first for debugging
+                const responseText = await response.text();
+                console.log('📥 Raw response:', responseText);
+
+                let result;
+                try {
+                    result = JSON.parse(responseText);
+                } catch (e) {
+                    console.error('❌ Failed to parse response:', e);
+                    throw new Error('Server returned invalid response');
+                }
+
+                if (!response.ok) {
+                    console.error('❌ Server error:', result);
+                    throw new Error(result.error || 'فشل في حفظ البيانات');
+                }
+
+                console.log('✅ Data saved successfully:', result);
+                return result;
+            } catch (error) {
+                console.error('❌ Error in saveData:', error);
+                // Don't throw, just log and return null
+                return null;
+            }
         }
 
         function lockQuiz(reason) {
@@ -483,10 +628,12 @@
         function validateAnswer(answer) {
             const cleaned = answer.trim();
             
+            // Direct match
             if (cleaned === '48' || cleaned === '٤٨') {
                 return true;
             }
 
+            // Patterns
             const patterns = [
                 /8\s*\*\s*6/i,
                 /6\s*\*\s*8/i,
@@ -516,6 +663,7 @@
                 }
             }
 
+            // Check if 48 appears in the answer
             if (cleaned.includes('48') || cleaned.includes('٤٨')) {
                 return true;
             }
@@ -523,30 +671,7 @@
             return false;
         }
 
-        async function saveData(data) {
-            try {
-                const response = await fetch('/api/submit', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify(data),
-                });
-
-                if (!response.ok) {
-                    const errorData = await response.json();
-                    throw new Error(errorData.error || 'فشل في حفظ البيانات');
-                }
-
-                const result = await response.json();
-                console.log('تم حفظ البيانات بنجاح:', result);
-                return result;
-            } catch (error) {
-                console.error('خطأ في حفظ البيانات:', error);
-                return null;
-            }
-        }
-
+        // Prevent page reload after lock
         window.addEventListener('beforeunload', function(e) {
             if (isLocked) {
                 e.preventDefault();
