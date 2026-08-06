@@ -20,7 +20,7 @@
             align-items: center;
             padding: 20px;
         }
-        .container {
+        .login-container {
             background: rgba(255, 255, 255, 0.95);
             border-radius: 20px;
             padding: 40px;
@@ -36,16 +36,14 @@
             width: 80px;
             height: 80px;
             border-radius: 50%;
-            border: 3px solid #302b63;
+            border: 4px solid #302b63;
+            object-fit: cover;
+            padding: 5px;
         }
         .logo h1 {
             color: #302b63;
             font-size: 1.8rem;
             margin-top: 10px;
-        }
-        .logo p {
-            color: #666;
-            font-size: 0.9rem;
         }
         .form-group {
             margin-bottom: 20px;
@@ -54,37 +52,39 @@
             display: block;
             font-weight: 600;
             color: #333;
-            margin-bottom: 5px;
+            margin-bottom: 8px;
         }
         input[type="text"],
         input[type="password"] {
             width: 100%;
-            padding: 12px 16px;
-            border: 2px solid #ddd;
-            border-radius: 10px;
+            padding: 14px 18px;
+            border: 2px solid #e0e0e0;
+            border-radius: 12px;
             font-size: 1rem;
-            transition: 0.3s;
+            transition: all 0.3s;
+            background: #fafafa;
         }
         input:focus {
             outline: none;
             border-color: #302b63;
-            box-shadow: 0 0 0 3px rgba(48, 43, 99, 0.2);
+            background: white;
+            box-shadow: 0 0 0 4px rgba(48, 43, 99, 0.1);
         }
         .btn {
-            background: #302b63;
+            background: linear-gradient(135deg, #302b63, #6c5ce7);
             color: white;
             border: none;
-            padding: 14px 28px;
-            border-radius: 10px;
+            padding: 16px;
+            border-radius: 12px;
             font-size: 1.1rem;
-            font-weight: 600;
+            font-weight: 700;
             cursor: pointer;
-            transition: 0.3s;
+            transition: all 0.3s;
             width: 100%;
         }
         .btn:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 10px 20px rgba(48, 43, 99, 0.3);
+            transform: translateY(-3px);
+            box-shadow: 0 10px 30px rgba(48, 43, 99, 0.4);
         }
         .btn:disabled {
             opacity: 0.6;
@@ -93,52 +93,32 @@
         }
         .error {
             color: #e74c3c;
-            background: #fdedec;
-            padding: 12px;
-            border-radius: 8px;
-            margin-top: 15px;
-            display: none;
             text-align: center;
+            margin-top: 15px;
+            font-weight: 600;
         }
-        .error.show {
-            display: block;
-        }
-        .loading {
-            display: inline-block;
-            width: 20px;
-            height: 20px;
-            border: 3px solid #f3f3f3;
-            border-top: 3px solid #302b63;
-            border-radius: 50%;
-            animation: spin 1s linear infinite;
-            vertical-align: middle;
-            margin-right: 10px;
-        }
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
+        .hidden {
+            display: none;
         }
     </style>
 </head>
 <body>
-    <div class="container">
+    <div class="login-container">
         <div class="logo">
-            <img src="https://i.postimg.cc/qMxzPzHh/Brain-Quiz.jpg" alt="BrainQuiz Logo" />
-            <h1>🔐 Admin Login</h1>
-            <p>Enter your credentials to access the dashboard</p>
+            <img src="https://i.postimg.cc/qMxzPzHh/Brain-Quiz.jpg" alt="BrainQuiz" />
+            <h1>Admin Login</h1>
         </div>
-
         <form id="loginForm" onsubmit="handleLogin(event)">
             <div class="form-group">
                 <label for="username">Username</label>
-                <input type="text" id="username" placeholder="Enter admin username" required autofocus />
+                <input type="text" id="username" placeholder="Enter username" required />
             </div>
             <div class="form-group">
                 <label for="password">Password</label>
-                <input type="password" id="password" placeholder="Enter admin password" required />
+                <input type="password" id="password" placeholder="Enter password" required />
             </div>
             <button type="submit" class="btn" id="loginBtn">Login</button>
-            <div class="error" id="errorMessage"></div>
+            <div id="errorMessage" class="error hidden"></div>
         </form>
     </div>
 
@@ -151,18 +131,9 @@
             const errorDiv = document.getElementById('errorMessage');
             const loginBtn = document.getElementById('loginBtn');
 
-            // Reset error
-            errorDiv.classList.remove('show');
-            errorDiv.textContent = '';
-
-            if (!username || !password) {
-                showError('Please fill in all fields');
-                return;
-            }
-
-            // Disable button and show loading
+            errorDiv.classList.add('hidden');
             loginBtn.disabled = true;
-            loginBtn.innerHTML = '<span class="loading"></span> Logging in...';
+            loginBtn.textContent = 'Logging in...';
 
             try {
                 const response = await fetch('/api/login', {
@@ -170,7 +141,7 @@
                     headers: {
                         'Content-Type': 'application/json',
                     },
-                    body: JSON.stringify({ username, password }),
+                    body: JSON.stringify({ username, password })
                 });
 
                 const data = await response.json();
@@ -179,32 +150,22 @@
                     throw new Error(data.error || 'Login failed');
                 }
 
-                if (data.token) {
-                    // Store token securely
-                    localStorage.setItem('adminToken', data.token);
-                    // Redirect to dashboard
-                    window.location.href = '/dashboard.html';
-                } else {
-                    throw new Error('Invalid response from server');
-                }
+                localStorage.setItem('adminToken', data.token);
+                window.location.href = '/dashboard.html';
+
             } catch (error) {
-                showError(error.message || 'Login failed. Please try again.');
+                errorDiv.textContent = error.message || 'Invalid credentials. Please try again.';
+                errorDiv.classList.remove('hidden');
                 loginBtn.disabled = false;
                 loginBtn.textContent = 'Login';
             }
-        }
-
-        function showError(message) {
-            const errorDiv = document.getElementById('errorMessage');
-            errorDiv.textContent = message;
-            errorDiv.classList.add('show');
         }
 
         // Check if already logged in
         document.addEventListener('DOMContentLoaded', () => {
             const token = localStorage.getItem('adminToken');
             if (token) {
-                // Verify token validity by making a test request
+                // Verify token is still valid
                 fetch('/api/dashboard', {
                     headers: {
                         'Authorization': `Bearer ${token}`
