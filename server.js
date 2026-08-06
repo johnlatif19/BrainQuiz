@@ -513,6 +513,20 @@ app.use((err, req, res, next) => {
     res.status(500).json({ error: 'Internal server error' });
 });
 
+// مسار اختبار للكتابة في Firestore
+app.get('/api/test-firebase', async (req, res) => {
+    try {
+        const testDoc = await db.collection('test_collection').add({
+            message: 'Test connection from Vercel',
+            timestamp: admin.firestore.FieldValue.serverTimestamp()
+        });
+        res.json({ success: true, id: testDoc.id, message: 'Firestore write successful!' });
+    } catch (error) {
+        console.error('❌ Firestore write test failed:', error);
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
 // Start server
 app.listen(port, () => {
     console.log(`✅ Server running on port ${port}`);
