@@ -389,6 +389,8 @@
                     const data = await response.json();
                     isQuizOpen = data.isOpen;
                     updateToggleButton();
+                } else {
+                    console.error('فشل في جلب حالة الاختبار');
                 }
             } catch (error) {
                 console.error('خطأ في جلب حالة الاختبار:', error);
@@ -400,30 +402,39 @@
             if (isQuizOpen) {
                 btn.textContent = 'إغلاق الاختبار';
                 btn.classList.remove('active');
+                btn.style.background = '#f39c12';
             } else {
                 btn.textContent = 'فتح الاختبار';
                 btn.classList.add('active');
+                btn.style.background = '#27ae60';
             }
         }
 
         async function toggleQuiz() {
             try {
                 const token = localStorage.getItem('adminToken');
+                if (!token) {
+                    alert('يرجى تسجيل الدخول أولاً');
+                    return;
+                }
+
+                const newStatus = !isQuizOpen;
                 const response = await fetch('/api/toggle-quiz', {
                     method: 'POST',
                     headers: {
                         'Authorization': `Bearer ${token}`,
                         'Content-Type': 'application/json'
                     },
-                    body: JSON.stringify({ isOpen: !isQuizOpen })
+                    body: JSON.stringify({ isOpen: newStatus })
                 });
 
                 if (response.ok) {
-                    isQuizOpen = !isQuizOpen;
+                    isQuizOpen = newStatus;
                     updateToggleButton();
                     alert(`تم ${isQuizOpen ? 'فتح' : 'إغلاق'} الاختبار بنجاح!`);
                 } else {
-                    alert('فشل في تغيير حالة الاختبار');
+                    const error = await response.json();
+                    alert('فشل في تغيير حالة الاختبار: ' + (error.error || ''));
                 }
             } catch (error) {
                 console.error('خطأ في تغيير حالة الاختبار:', error);
