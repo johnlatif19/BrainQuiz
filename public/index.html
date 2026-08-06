@@ -124,6 +124,12 @@
             cursor: not-allowed;
             transform: none;
         }
+        .btn-secondary {
+            background: linear-gradient(135deg, #e74c3c, #c0392b);
+        }
+        .btn-secondary:hover {
+            box-shadow: 0 10px 30px rgba(231, 76, 60, 0.4);
+        }
         .quiz-section {
             display: none;
             animation: fadeIn 0.5s ease;
@@ -217,6 +223,47 @@
             margin: 0 10px;
             opacity: 0.5;
         }
+        .lock-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.8);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+        }
+        .lock-overlay.active {
+            display: flex;
+        }
+        .lock-box {
+            background: white;
+            padding: 40px;
+            border-radius: 20px;
+            text-align: center;
+            max-width: 400px;
+            width: 90%;
+        }
+        .lock-box h2 {
+            color: #e74c3c;
+            margin-bottom: 15px;
+        }
+        .lock-box p {
+            color: #666;
+            margin-bottom: 20px;
+            line-height: 1.6;
+        }
+        .lock-box .contact {
+            color: #302b63;
+            font-weight: 700;
+            font-size: 1.2rem;
+            background: #f0f0ff;
+            padding: 10px;
+            border-radius: 8px;
+            margin: 15px 0;
+        }
         @media (max-width: 600px) {
             .container {
                 padding: 25px;
@@ -235,6 +282,9 @@
             .user-info {
                 font-size: 0.95rem;
             }
+            .lock-box {
+                padding: 25px;
+            }
         }
     </style>
 </head>
@@ -244,21 +294,21 @@
             <div class="logo-wrapper">
                 <img src="https://i.postimg.cc/qMxzPzHh/Brain-Quiz.jpg" alt="شعار BrainQuiz" onerror="this.style.display='none'" />
             </div>
-            <h1><span>🧠 BrainQuiz</span></h1>
+            <h1><span>BrainQuiz</span></h1>
             <div class="subtitle">اختبر ذكاءك وحل اللغز!</div>
         </div>
 
         <!-- نموذج معلومات المستخدم -->
         <div id="userForm">
             <div class="form-group">
-                <label for="userName">👤 الاسم</label>
+                <label for="userName">الاسم</label>
                 <input type="text" id="userName" placeholder="أدخل اسمك الكامل" required />
             </div>
             <div class="form-group">
-                <label for="userAge">🎂 العمر</label>
+                <label for="userAge">العمر</label>
                 <input type="number" id="userAge" placeholder="أدخل عمرك" required min="1" max="120" />
             </div>
-            <button class="btn" onclick="startQuiz()">🚀 ابدأ التحدي</button>
+            <button class="btn" onclick="startQuiz()">ابدأ التحدي</button>
         </div>
 
         <!-- قسم الاختبار -->
@@ -267,11 +317,22 @@
             <img src="https://i.postimg.cc/sfKm3Dzg/MATH.jpg" alt="لغز رياضي" class="puzzle-image" />
             <div class="timer" id="timer">01:00</div>
             <div class="form-group">
-                <label for="answerInput">✏️ إجابتك</label>
-                <input type="text" id="answerInput" placeholder="اكتب الإجابة (48 أو ٤٨ أو شرح الحل)" dir="auto" />
+                <label for="answerInput">إجابتك</label>
+                <input type="text" id="answerInput" placeholder="اكتب الإجابة" dir="auto" />
             </div>
-            <button class="btn" id="submitBtn" onclick="submitAnswer()">✅ تأكيد الإجابة</button>
+            <button class="btn" id="submitBtn" onclick="submitAnswer()">تأكيد الإجابة</button>
             <div id="result" class="result hidden"></div>
+        </div>
+    </div>
+
+    <!-- قفل الاختبار -->
+    <div class="lock-overlay" id="lockOverlay">
+        <div class="lock-box">
+            <h2>الاختبار مغلق</h2>
+            <p>لقد انتهى وقت الاختبار أو تم الإجابة عليه مسبقاً.</p>
+            <p>في حال رغبت في إعادة الاختبار، يرجى التواصل مع:</p>
+            <div class="contact">📱 01012345678</div>
+            <button class="btn btn-secondary" onclick="window.location.reload()">تحديث الصفحة</button>
         </div>
     </div>
 
@@ -281,18 +342,19 @@
         let timerInterval = null;
         let isAnswered = false;
         let startTime = null;
+        let isLocked = false;
 
         function startQuiz() {
             const name = document.getElementById('userName').value.trim();
             const age = document.getElementById('userAge').value.trim();
 
             if (!name || !age) {
-                alert('⚠️ الرجاء ملء جميع الحقول!');
+                alert('الرجاء ملء جميع الحقول!');
                 return;
             }
 
             if (isNaN(age) || parseInt(age) < 1 || parseInt(age) > 120) {
-                alert('⚠️ الرجاء إدخال عمر صحيح (1-120)');
+                alert('الرجاء إدخال عمر صحيح (1-120)');
                 return;
             }
 
@@ -302,9 +364,9 @@
             };
 
             document.getElementById('userDisplay').innerHTML = `
-                <strong>👤 الاسم:</strong> ${name} 
+                <strong>الاسم:</strong> ${name} 
                 <span class="separator">|</span> 
-                <strong>🎂 العمر:</strong> ${age} سنة
+                <strong>العمر:</strong> ${age} سنة
             `;
 
             document.getElementById('userForm').style.display = 'none';
@@ -325,6 +387,7 @@
                     document.getElementById('answerInput').disabled = true;
                     document.getElementById('submitBtn').disabled = true;
                     if (!isAnswered) {
+                        lockQuiz('انتهى الوقت');
                         submitAnswer(true);
                     }
                 }
@@ -349,7 +412,7 @@
             const answer = answerInput.value.trim();
             
             if (!answer && !autoSubmit) {
-                alert('⚠️ الرجاء إدخال إجابتك!');
+                alert('الرجاء إدخال إجابتك!');
                 return;
             }
 
@@ -364,10 +427,16 @@
 
             const resultDiv = document.getElementById('result');
             resultDiv.classList.remove('hidden', 'correct', 'wrong');
-            resultDiv.textContent = isCorrect ? '✅ إجابة صحيحة! 🎉' : '❌ إجابة خاطئة! 😅';
-            resultDiv.classList.add(isCorrect ? 'correct' : 'wrong');
+            
+            if (isCorrect) {
+                resultDiv.textContent = 'إجابة صحيحة!';
+                resultDiv.classList.add('correct');
+            } else {
+                resultDiv.textContent = 'إجابة خاطئة! الإجابة الصحيحة هي: 48';
+                resultDiv.classList.add('wrong');
+            }
 
-            // حفظ البيانات في Firebase
+            // حفظ البيانات
             saveData({
                 ...userData,
                 answer: answer || 'انتهى الوقت',
@@ -375,6 +444,20 @@
                 timeTaken: timeTaken,
                 timestamp: new Date().toISOString()
             });
+
+            // قفل الاختبار بعد 5 ثواني
+            setTimeout(() => {
+                lockQuiz('تم الإجابة على الاختبار');
+            }, 5000);
+        }
+
+        function lockQuiz(reason) {
+            if (isLocked) return;
+            isLocked = true;
+            document.getElementById('lockOverlay').classList.add('active');
+            document.getElementById('answerInput').disabled = true;
+            document.getElementById('submitBtn').disabled = true;
+            clearInterval(timerInterval);
         }
 
         function validateAnswer(answer) {
@@ -441,9 +524,16 @@
                 console.log('تم حفظ البيانات بنجاح:', result);
             } catch (error) {
                 console.error('خطأ في حفظ البيانات:', error);
-                alert('⚠️ حدث خطأ في حفظ النتائج. الرجاء المحاولة مرة أخرى.');
             }
         }
+
+        // منع إعادة تحميل الصفحة بعد قفل الاختبار
+        window.addEventListener('beforeunload', function(e) {
+            if (isLocked) {
+                e.preventDefault();
+                e.returnValue = '';
+            }
+        });
     </script>
 </body>
 </html>
