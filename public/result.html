@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>نتيجة الاختبار - BrainQuiz</title>
+    <link rel="icon" href="https://i.postimg.cc/qMxzPzHh/Brain-Quiz.jpg" />
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #0f0c29, #302b63, #24243e);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+        .container {
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 20px;
+            padding: 40px;
+            max-width: 500px;
+            width: 100%;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+            text-align: center;
+        }
+        .logo {
+            margin-bottom: 25px;
+        }
+        .logo img {
+            width: 80px;
+            height: 80px;
+            border-radius: 50%;
+            border: 4px solid #302b63;
+            object-fit: cover;
+            background: white;
+            padding: 5px;
+        }
+        .logo h1 {
+            color: #302b63;
+            font-size: 1.8rem;
+            margin-top: 10px;
+        }
+        .result-icon {
+            font-size: 4rem;
+            margin: 20px 0;
+        }
+        .result-box {
+            padding: 25px;
+            border-radius: 16px;
+            margin: 20px 0;
+        }
+        .result-box.correct {
+            background: #eafaf1;
+            border: 3px solid #27ae60;
+        }
+        .result-box.wrong {
+            background: #fdedec;
+            border: 3px solid #e74c3c;
+        }
+        .result-box h2 {
+            font-size: 2rem;
+            margin-bottom: 10px;
+        }
+        .result-box.correct h2 {
+            color: #27ae60;
+        }
+        .result-box.wrong h2 {
+            color: #e74c3c;
+        }
+        .result-box .correct-answer {
+            color: #27ae60;
+            font-weight: 700;
+            font-size: 1.5rem;
+            margin: 15px 0;
+            padding: 15px;
+            background: white;
+            border-radius: 12px;
+            border: 2px dashed #27ae60;
+        }
+        .result-details {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 12px;
+            margin: 20px 0;
+            text-align: right;
+        }
+        .result-details p {
+            margin: 8px 0;
+            color: #555;
+            font-size: 1.05rem;
+        }
+        .result-details strong {
+            color: #302b63;
+        }
+        .btn {
+            background: linear-gradient(135deg, #302b63, #6c5ce7);
+            color: white;
+            border: none;
+            padding: 16px 28px;
+            border-radius: 12px;
+            font-size: 1.1rem;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.3s;
+            width: 100%;
+            font-family: inherit;
+            margin-top: 10px;
+        }
+        .btn:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 10px 30px rgba(48, 43, 99, 0.4);
+        }
+        .btn-secondary {
+            background: linear-gradient(135deg, #e74c3c, #c0392b);
+        }
+        .btn-secondary:hover {
+            box-shadow: 0 10px 30px rgba(231, 76, 60, 0.4);
+        }
+        .lock-message {
+            background: #fff3cd;
+            border: 2px solid #ffc107;
+            padding: 15px;
+            border-radius: 12px;
+            margin: 20px 0;
+            color: #856404;
+        }
+        .lock-message .contact {
+            color: #302b63;
+            font-weight: 700;
+            font-size: 1.2rem;
+            background: white;
+            padding: 10px;
+            border-radius: 8px;
+            margin: 10px 0;
+        }
+        @media (max-width: 600px) {
+            .container {
+                padding: 25px;
+            }
+            .result-box h2 {
+                font-size: 1.5rem;
+            }
+            .result-box .correct-answer {
+                font-size: 1.2rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="logo">
+            <img src="https://i.postimg.cc/qMxzPzHh/Brain-Quiz.jpg" alt="BrainQuiz" />
+            <h1>BrainQuiz</h1>
+        </div>
+
+        <div id="resultContainer">
+            <!-- سيتم عرض النتيجة هنا -->
+        </div>
+
+        <div class="lock-message">
+            <p>الاختبار مغلق ولا يمكن إعادة المحاولة.</p>
+            <p>في حال رغبت في إعادة الاختبار، يرجى التواصل مع:</p>
+            <div class="contact">01012345678</div>
+        </div>
+
+        <button class="btn" onclick="goHome()">العودة إلى الصفحة الرئيسية</button>
+        <button class="btn btn-secondary" onclick="logout()">تسجيل الخروج</button>
+    </div>
+
+    <script>
+        // التحقق من وجود نتيجة
+        document.addEventListener('DOMContentLoaded', function() {
+            const resultData = localStorage.getItem('quizResult');
+            
+            if (!resultData) {
+                // إذا لم توجد نتيجة، إعادة توجيه إلى الصفحة الرئيسية
+                window.location.href = '/';
+                return;
+            }
+
+            const data = JSON.parse(resultData);
+            displayResult(data);
+        });
+
+        function displayResult(data) {
+            const container = document.getElementById('resultContainer');
+            
+            let html = '';
+            
+            if (data.isCorrect) {
+                html = `
+                    <div class="result-box correct">
+                        <div class="result-icon">✔</div>
+                        <h2>إجابة صحيحة!</h2>
+                        <p style="color: #27ae60; font-size: 1.2rem;">أحسنت! إجابتك صحيحة</p>
+                    </div>
+                `;
+            } else {
+                html = `
+                    <div class="result-box wrong">
+                        <div class="result-icon">✘</div>
+                        <h2>إجابة خاطئة</h2>
+                        <p style="color: #e74c3c; font-size: 1.1rem;">الإجابة الصحيحة هي:</p>
+                        <div class="correct-answer">48</div>
+                    </div>
+                `;
+            }
+
+            html += `
+                <div class="result-details">
+                    <p><strong>الاسم:</strong> ${data.userData.name}</p>
+                    <p><strong>العمر:</strong> ${data.userData.age} سنة</p>
+                    <p><strong>إجابتك:</strong> ${data.answer || 'لم يتم الإجابة'}</p>
+                    <p><strong>الوقت المستغرق:</strong> ${data.timeTaken} ثانية</p>
+                </div>
+            `;
+
+            container.innerHTML = html;
+        }
+
+        function goHome() {
+            window.location.href = '/';
+        }
+
+        function logout() {
+            // مسح بيانات الاختبار
+            localStorage.removeItem('quizResult');
+            localStorage.removeItem('quizLocked');
+            window.location.href = '/';
+        }
+
+        // منع العودة إلى الخلف
+        window.addEventListener('popstate', function(e) {
+            e.preventDefault();
+            // البقاء في نفس الصفحة
+            history.pushState(null, null, window.location.href);
+        });
+
+        // إضافة حالة للتاريخ لمنع العودة
+        history.pushState(null, null, window.location.href);
+        window.addEventListener('popstate', function(e) {
+            history.pushState(null, null, window.location.href);
+        });
+    </script>
+</body>
+</html>
