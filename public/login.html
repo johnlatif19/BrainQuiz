@@ -151,7 +151,7 @@
                 }
 
                 localStorage.setItem('adminToken', data.token);
-                window.location.href = '/dashboard.html';
+                window.location.href = '/dashboard';
 
             } catch (error) {
                 errorDiv.textContent = error.message || 'Invalid credentials. Please try again.';
@@ -173,7 +173,7 @@
                 })
                 .then(response => {
                     if (response.ok) {
-                        window.location.href = '/dashboard.html';
+                        window.location.href = '/dashboard';
                     } else {
                         localStorage.removeItem('adminToken');
                     }
