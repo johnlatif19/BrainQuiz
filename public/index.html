@@ -375,15 +375,34 @@
                     document.getElementById('answerInput').disabled = true;
                     document.getElementById('submitBtn').disabled = true;
                     if (!isAnswered) {
-                        lockQuiz('انتهى الوقت');
-                        // حفظ البيانات مع إجابة فارغة
+                        // انتهاء الوقت - حفظ البيانات وإظهار النتيجة
+                        const timeTaken = 60;
+                        const isCorrect = false;
+                        
+                        // حفظ البيانات في قاعدة البيانات
                         saveData({
                             ...userData,
                             answer: 'انتهى الوقت',
-                            isCorrect: false,
-                            timeTaken: 60,
+                            isCorrect: isCorrect,
+                            timeTaken: timeTaken,
                             timestamp: new Date().toISOString()
                         });
+
+                        // تخزين النتيجة في localStorage
+                        localStorage.setItem('quizResult', JSON.stringify({
+                            isCorrect: isCorrect,
+                            answer: 'انتهى الوقت',
+                            timeTaken: timeTaken,
+                            userData: userData
+                        }));
+
+                        // قفل الاختبار
+                        lockQuiz('انتهى الوقت');
+
+                        // الانتقال إلى صفحة النتيجة
+                        setTimeout(() => {
+                            window.location.href = '/result.html';
+                        }, 1000);
                     }
                 }
             }, 1000);
@@ -420,7 +439,7 @@
             document.getElementById('submitBtn').disabled = true;
             document.getElementById('answerInput').disabled = true;
 
-            // حفظ البيانات
+            // حفظ البيانات في قاعدة البيانات
             saveData({
                 ...userData,
                 answer: answer,
@@ -429,7 +448,7 @@
                 timestamp: new Date().toISOString()
             });
 
-            // الانتقال إلى صفحة النتيجة
+            // تخزين النتيجة في localStorage
             localStorage.setItem('quizResult', JSON.stringify({
                 isCorrect: isCorrect,
                 answer: answer,
@@ -440,9 +459,9 @@
             // قفل الاختبار
             lockQuiz('تم الإجابة على الاختبار');
 
-            // الانتقال إلى صفحة النتيجة بعد ثانية
+            // الانتقال إلى صفحة النتيجة بعد 1 ثانية
             setTimeout(() => {
-                window.location.href = '/result';
+                window.location.href = '/result.html';
             }, 1000);
         }
 
@@ -514,13 +533,18 @@
                 });
 
                 if (!response.ok) {
-                    throw new Error('فشل في حفظ البيانات');
+                    const errorData = await response.json();
+                    throw new Error(errorData.error || 'فشل في حفظ البيانات');
                 }
 
                 const result = await response.json();
                 console.log('تم حفظ البيانات بنجاح:', result);
+                console.log('معرف المستند:', result.id);
+                return result;
             } catch (error) {
                 console.error('خطأ في حفظ البيانات:', error);
+                // حتى لو فشل الحفظ، نكمل العملية عشان المستخدم يشوف النتيجة
+                return null;
             }
         }
 
