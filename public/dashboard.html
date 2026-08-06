@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="ar" dir="rtl">
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>BrainQuiz - Dashboard</title>
+    <title>BrainQuiz - لوحة التحكم</title>
     <link rel="icon" href="https://i.postimg.cc/qMxzPzHh/Brain-Quiz.jpg" />
     <style>
         * {
@@ -156,7 +156,7 @@
         }
         th {
             padding: 15px;
-            text-align: left;
+            text-align: right;
             font-weight: 600;
             cursor: pointer;
             user-select: none;
@@ -166,11 +166,12 @@
             background: #413b7a;
         }
         th .sort-icon {
-            margin-left: 5px;
+            margin-right: 5px;
         }
         td {
             padding: 12px 15px;
             border-bottom: 1px solid #eee;
+            text-align: right;
         }
         tr:hover {
             background: #f8f9fa;
@@ -260,71 +261,71 @@
     <div class="header">
         <div class="header-left">
             <img src="https://i.postimg.cc/qMxzPzHh/Brain-Quiz.jpg" alt="BrainQuiz" />
-            <h1>Admin Dashboard</h1>
+            <h1>لوحة التحكم</h1>
         </div>
         <div class="header-right">
-            <span id="userDisplay" style="opacity:0.8;">Admin</span>
-            <button class="logout-btn" onclick="logout()">Logout</button>
+            <span id="userDisplay" style="opacity:0.8;">مدير النظام</span>
+            <button class="logout-btn" onclick="logout()">تسجيل الخروج</button>
         </div>
     </div>
 
     <div class="stats" id="statsContainer">
         <div class="stat-item">
             <div class="number" id="totalAttempts">0</div>
-            <div class="label">Total Attempts</div>
+            <div class="label">إجمالي المحاولات</div>
         </div>
         <div class="stat-item">
             <div class="number" id="correctCount">0</div>
-            <div class="label">Correct Answers</div>
+            <div class="label">إجابات صحيحة</div>
         </div>
         <div class="stat-item">
             <div class="number" id="wrongCount">0</div>
-            <div class="label">Wrong Answers</div>
+            <div class="label">إجابات خاطئة</div>
         </div>
         <div class="stat-item">
-            <div class="number" id="avgTime">0s</div>
-            <div class="label">Average Time</div>
+            <div class="number" id="avgTime">0ث</div>
+            <div class="label">متوسط الوقت</div>
         </div>
     </div>
 
     <div class="controls">
-        <input type="text" id="searchInput" placeholder="Search by name or answer..." oninput="filterData()" />
+        <input type="text" id="searchInput" placeholder="بحث بالاسم أو الإجابة..." oninput="filterData()" />
         <select id="sortSelect" onchange="sortData()">
-            <option value="timestamp-desc">Date (Newest)</option>
-            <option value="timestamp-asc">Date (Oldest)</option>
-            <option value="name-asc">Name (A-Z)</option>
-            <option value="name-desc">Name (Z-A)</option>
-            <option value="correct-desc">Correct First</option>
-            <option value="wrong-desc">Wrong First</option>
-            <option value="time-asc">Time (Fastest)</option>
-            <option value="time-desc">Time (Slowest)</option>
+            <option value="timestamp-desc">التاريخ (الأحدث)</option>
+            <option value="timestamp-asc">التاريخ (الأقدم)</option>
+            <option value="name-asc">الاسم (أ-ي)</option>
+            <option value="name-desc">الاسم (ي-أ)</option>
+            <option value="correct-desc">الصحيح أولاً</option>
+            <option value="wrong-desc">الخاطئ أولاً</option>
+            <option value="time-asc">الوقت (الأسرع)</option>
+            <option value="time-desc">الوقت (الأبطأ)</option>
         </select>
         <div class="action-buttons">
-            <button class="action-btn delete-btn" onclick="deleteAllData()">Delete All</button>
-            <button class="action-btn toggle-btn" id="toggleBtn" onclick="toggleQuiz()">Close Quiz</button>
+            <button class="action-btn toggle-btn" id="toggleBtn" onclick="toggleQuiz()">فتح الاختبار</button>
+            <button class="action-btn delete-btn" onclick="deleteAllData()">حذف الكل</button>
         </div>
     </div>
 
     <div class="table-container">
         <div id="loadingIndicator" class="loading-container">
             <div class="loading-spinner"></div>
-            <p style="margin-top:15px;">Loading data...</p>
+            <p style="margin-top:15px;">جاري تحميل البيانات...</p>
         </div>
         <div id="tableContainer" style="display:none;">
             <table>
                 <thead>
                     <tr>
-                        <th onclick="sortBy('name')">Name <span class="sort-icon">↕</span></th>
-                        <th onclick="sortBy('age')">Age <span class="sort-icon">↕</span></th>
-                        <th onclick="sortBy('answer')">Answer <span class="sort-icon">↕</span></th>
-                        <th onclick="sortBy('isCorrect')">Status <span class="sort-icon">↕</span></th>
-                        <th onclick="sortBy('timeTaken')">Time <span class="sort-icon">↕</span></th>
-                        <th onclick="sortBy('timestamp')">Date <span class="sort-icon">↕</span></th>
+                        <th onclick="sortBy('name')">الاسم <span class="sort-icon">↕</span></th>
+                        <th onclick="sortBy('age')">العمر <span class="sort-icon">↕</span></th>
+                        <th onclick="sortBy('answer')">الإجابة <span class="sort-icon">↕</span></th>
+                        <th onclick="sortBy('isCorrect')">الحالة <span class="sort-icon">↕</span></th>
+                        <th onclick="sortBy('timeTaken')">الوقت <span class="sort-icon">↕</span></th>
+                        <th onclick="sortBy('timestamp')">التاريخ <span class="sort-icon">↕</span></th>
                     </tr>
                 </thead>
                 <tbody id="tableBody"></tbody>
             </table>
-            <div id="noData" class="no-data" style="display:none;">No quiz attempts found.</div>
+            <div id="noData" class="no-data" style="display:none;">لا توجد محاولات اختبار.</div>
         </div>
     </div>
 
@@ -334,7 +335,7 @@
         let currentSort = 'timestamp-desc';
         let isQuizOpen = true;
 
-        // Check authentication
+        // التحقق من المصادقة
         document.addEventListener('DOMContentLoaded', () => {
             const token = localStorage.getItem('adminToken');
             if (!token) {
@@ -359,7 +360,7 @@
                         window.location.href = '/login';
                         return;
                     }
-                    throw new Error('Failed to fetch data');
+                    throw new Error('فشل في جلب البيانات');
                 }
 
                 const data = await response.json();
@@ -369,9 +370,9 @@
                 document.getElementById('loadingIndicator').style.display = 'none';
                 document.getElementById('tableContainer').style.display = 'block';
             } catch (error) {
-                console.error('Error fetching data:', error);
+                console.error('خطأ في جلب البيانات:', error);
                 document.getElementById('loadingIndicator').innerHTML = `
-                    <p style="color:#e74c3c;">Error loading data. Please refresh the page.</p>
+                    <p style="color:#e74c3c;">حدث خطأ في تحميل البيانات. يرجى تحديث الصفحة.</p>
                 `;
             }
         }
@@ -390,17 +391,17 @@
                     updateToggleButton();
                 }
             } catch (error) {
-                console.error('Error fetching quiz status:', error);
+                console.error('خطأ في جلب حالة الاختبار:', error);
             }
         }
 
         function updateToggleButton() {
             const btn = document.getElementById('toggleBtn');
             if (isQuizOpen) {
-                btn.textContent = 'Close Quiz';
+                btn.textContent = 'إغلاق الاختبار';
                 btn.classList.remove('active');
             } else {
-                btn.textContent = 'Open Quiz';
+                btn.textContent = 'فتح الاختبار';
                 btn.classList.add('active');
             }
         }
@@ -420,18 +421,18 @@
                 if (response.ok) {
                     isQuizOpen = !isQuizOpen;
                     updateToggleButton();
-                    alert(`Quiz ${isQuizOpen ? 'opened' : 'closed'} successfully!`);
+                    alert(`تم ${isQuizOpen ? 'فتح' : 'إغلاق'} الاختبار بنجاح!`);
                 } else {
-                    alert('Failed to toggle quiz status');
+                    alert('فشل في تغيير حالة الاختبار');
                 }
             } catch (error) {
-                console.error('Error toggling quiz:', error);
-                alert('Error toggling quiz status');
+                console.error('خطأ في تغيير حالة الاختبار:', error);
+                alert('حدث خطأ أثناء تغيير حالة الاختبار');
             }
         }
 
         async function deleteAllData() {
-            if (!confirm('Are you sure you want to delete ALL quiz attempts? This action cannot be undone!')) {
+            if (!confirm('هل أنت متأكد من حذف جميع محاولات الاختبار؟ هذا الإجراء لا يمكن التراجع عنه!')) {
                 return;
             }
 
@@ -449,13 +450,13 @@
                     filteredData = [];
                     updateStats();
                     renderTable();
-                    alert('All data deleted successfully!');
+                    alert('تم حذف جميع البيانات بنجاح!');
                 } else {
-                    alert('Failed to delete data');
+                    alert('فشل في حذف البيانات');
                 }
             } catch (error) {
-                console.error('Error deleting data:', error);
-                alert('Error deleting data');
+                console.error('خطأ في حذف البيانات:', error);
+                alert('حدث خطأ أثناء حذف البيانات');
             }
         }
 
@@ -470,7 +471,7 @@
             document.getElementById('totalAttempts').textContent = total;
             document.getElementById('correctCount').textContent = correct;
             document.getElementById('wrongCount').textContent = wrong;
-            document.getElementById('avgTime').textContent = avgTime + 's';
+            document.getElementById('avgTime').textContent = avgTime + 'ث';
         }
 
         function applyFiltersAndSort() {
@@ -550,15 +551,15 @@
             noData.style.display = 'none';
             tbody.innerHTML = filteredData.map(item => `
                 <tr>
-                    <td><strong>${escapeHtml(item.name || 'N/A')}</strong></td>
-                    <td>${item.age || 'N/A'}</td>
-                    <td>${escapeHtml(item.answer || 'N/A')}</td>
+                    <td><strong>${escapeHtml(item.name || 'غير متوفر')}</strong></td>
+                    <td>${item.age || 'غير متوفر'}</td>
+                    <td>${escapeHtml(item.answer || 'غير متوفر')}</td>
                     <td>
                         <span class="badge ${item.isCorrect ? 'correct' : 'wrong'}">
-                            ${item.isCorrect ? 'Correct' : 'Wrong'}
+                            ${item.isCorrect ? 'صحيح' : 'خاطئ'}
                         </span>
                     </td>
-                    <td>${item.timeTaken || 0}s</td>
+                    <td>${item.timeTaken || 0}ث</td>
                     <td>${formatDate(item.timestamp)}</td>
                 </tr>
             `).join('');
@@ -571,10 +572,10 @@
         }
 
         function formatDate(timestamp) {
-            if (!timestamp) return 'N/A';
+            if (!timestamp) return 'غير متوفر';
             try {
                 const date = new Date(timestamp);
-                return date.toLocaleString('en-US', {
+                return date.toLocaleString('ar-EG', {
                     year: 'numeric',
                     month: 'short',
                     day: 'numeric',
